@@ -120,13 +120,13 @@ Unlike basic converters, SwiftMigrate:
 ---
 
 ## 🧑‍💻 Author
-Ashish Kumar
-Bharat Sharadkumar Dangra
-Jyoti Patil
-Kaushik Mishra
-Muktapuram Sridhar Sai Raghavi Reddy
-Pranavnath Jujaray
-Seema Mittal 
+- Ashish Kumar
+- Bharat Sharadkumar Dangra
+- Jyoti Patil
+- Kaushik Mishra
+- Muktapuram Sridhar Sai Raghavi Reddy
+- Pranavnath Jujaray
+- Seema Mittal 
 
 Built as part of a Hackathon 🚀
 
