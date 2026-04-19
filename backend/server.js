@@ -56,6 +56,12 @@ async function selfHeal(seleniumCode) {
   console.log("Preprocess issues:", preprocessResult.issues);
   console.log("Extracted steps:", steps);
 
+  const migrationDiagnostics = {
+    preprocessIssues: preprocessResult.issues,
+    qualityScore: preprocessResult.score,
+    intentCategories: steps,
+  };
+
   while (attempts < maxAttempts) {
     attempts++;
 
@@ -88,7 +94,8 @@ async function selfHeal(seleniumCode) {
         attempts,
         healed: attempts > 1,
         logs: result.output,
-        explanation
+        explanation,
+        ...migrationDiagnostics,
       };
     }
 
@@ -120,6 +127,7 @@ async function selfHeal(seleniumCode) {
     attempts,
     healed: false,
     error: lastError,
+    ...migrationDiagnostics,
   };
 }
 
