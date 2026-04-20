@@ -22,10 +22,24 @@ export type ConvertRunResponse = {
   intentCategories?: string[];
 };
 
+export type UploadAnalyzeResponse = {
+  tests: Array<{ content: string; mappedPOMs?: unknown }>;
+  sources?: Array<{
+    name: string;
+    relativePath: string;
+    content: string;
+  }>;
+  error?: string;
+};
+
 // 🔥 Main API: Convert + Run + Self-Heal
-export const convertRun = async (fileContent: string) => {
+export const convertRun = async (
+  code: string,
+  options?: { mappedPOMs?: unknown }
+) => {
   const res = await axios.post(`${API_BASE}/convert-run`, {
-    code: fileContent,
+    code,
+    mappedPOMs: options?.mappedPOMs,
   });
 
   return res.data as ConvertRunResponse;

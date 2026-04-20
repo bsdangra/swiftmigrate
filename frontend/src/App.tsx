@@ -3,7 +3,11 @@ import FileUpload from "./components/FileUpload";
 import CodeViewer from "./components/CodeViewer";
 import OutputConsole from "./components/OutputConsole";
 import MigrationReport, { type MigrationRunSummary } from "./components/MigrationReport";
-import { convertRun } from "./services/api";
+import {
+  convertRun,
+  type ConvertRunResponse,
+  type UploadAnalyzeResponse,
+} from "./services/api";
 import type { SourceFile } from "./utils/mergeSources";
 
 function App() {
@@ -16,6 +20,72 @@ function App() {
   const [explanation, setExplanation] = useState<string>("");
   const [migrationRun, setMigrationRun] = useState<MigrationRunSummary | null>(null);
 
+  const applyConvertResponse = (res: ConvertRunResponse) => {
+    setConvertedCode(res.playwrightCode || "");
+
+    const rawOutput = res.logs || res.error || "";
+
+    const cleanLogs = rawOutput
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .slice(-10)
+      .join("\n");
+
+    setOutput(cleanLogs);
+
+    setExplanation(res.explanation || "");
+
+    const pwLines = (res.playwrightCode || "").split("\n").length;
+    let statusLabel = "";
+
+    if (res.success) {
+      if (res.healed) {
+        setStatus(`🛠 Auto-healed in ${res.attempts} attempts`);
+        statusLabel = `Completed after self-healing (${res.attempts} attempt(s)). Playwright test executed successfully.`;
+      } else {
+        setStatus("✅ Converted & Passed");
+        statusLabel =
+          "Converted on the first attempt and Playwright execution passed intent verification.";
+      }
+    } else {
+      setStatus("❌ Failed after retries");
+      statusLabel =
+        "Playwright execution or intent verification did not succeed within the retry budget. Review execution output and preprocess findings below.";
+    }
+
+    setMigrationRun({
+      success: !!res.success,
+      attempts: res.attempts || 1,
+      healed: !!res.healed,
+      statusLabel,
+      finishedAt: new Date().toISOString(),
+      preprocessIssues: res.preprocessIssues ?? [],
+      qualityScore:
+        typeof res.qualityScore === "number" ? res.qualityScore : null,
+      intentCategories: res.intentCategories ?? [],
+      playwrightLineCount: pwLines,
+    });
+  };
+
+  const runConvertPipeline = async (seleniumCode: string, mappedPOMs?: unknown) => {
+    setLoading(true);
+    setStatus("🔄 Converting...");
+    setTimeout(() => setStatus("⚙️ Running test..."), 800);
+    setTimeout(() => setStatus("🛠 Fixing issues..."), 1600);
+
+    try {
+      const res = await convertRun(seleniumCode, { mappedPOMs });
+      applyConvertResponse(res);
+    } catch (err) {
+      console.error(err);
+      setStatus("❌ Something went wrong");
+      setOutput("Server error");
+      setMigrationRun(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSourcesChange = (sources: SourceFile[], mergedContent: string) => {
     setSourceFiles(sources);
     setFileContent(mergedContent);
@@ -26,66 +96,43 @@ function App() {
     setStatus("");
   };
 
-  const handleConvertRun = async () => {
-    setLoading(true);
-    setStatus("🔄 Converting...");
-    setTimeout(() => setStatus("⚙️ Running test..."), 800);
-    setTimeout(() => setStatus("🛠 Fixing issues..."), 1600);
+  const handleConvertRun = () => {
+    if (!fileContent.trim()) return;
+    void runConvertPipeline(fileContent);
+  };
 
-    try {
-      const res = await convertRun(fileContent);
-
-      setConvertedCode(res.playwrightCode || "");
-
-      const rawOutput = res.logs || res.error || "";
-
-      const cleanLogs = rawOutput
-        .split("\n")
-        .filter((line) => line.trim() !== "")
-        .slice(-10)
-        .join("\n");
-
-      setOutput(cleanLogs);
-
-      setExplanation(res.explanation || "");
-
-      const pwLines = (res.playwrightCode || "").split("\n").length;
-      let statusLabel = "";
-
-      if (res.success) {
-        if (res.healed) {
-          setStatus(`🛠 Auto-healed in ${res.attempts} attempts`);
-          statusLabel = `Completed after self-healing (${res.attempts} attempt(s)). Playwright test executed successfully.`;
-        } else {
-          setStatus("✅ Converted & Passed");
-          statusLabel =
-            "Converted on the first attempt and Playwright execution passed intent verification.";
-        }
-      } else {
-        setStatus("❌ Failed after retries");
-        statusLabel =
-          "Playwright execution or intent verification did not succeed within the retry budget. Review execution output and preprocess findings below.";
-      }
-
-      setMigrationRun({
-        success: !!res.success,
-        attempts: res.attempts || 1,
-        healed: !!res.healed,
-        statusLabel,
-        finishedAt: new Date().toISOString(),
-        preprocessIssues: res.preprocessIssues ?? [],
-        qualityScore:
-          typeof res.qualityScore === "number" ? res.qualityScore : null,
-        intentCategories: res.intentCategories ?? [],
-        playwrightLineCount: pwLines,
-      });
-    } catch {
-      setStatus("❌ Something went wrong");
-      setOutput("Server error");
+  const onUploadAnalyzed = async (data: UploadAnalyzeResponse | null) => {
+    if (data === null) {
+      return;
+    }
+    if (!data.tests || data.tests.length === 0) {
+      setStatus("❌ No test files found");
       setMigrationRun(null);
+      return;
     }
 
-    setLoading(false);
+    const mainTest = data.tests[0];
+
+    if (data.sources && data.sources.length > 0) {
+      setSourceFiles(data.sources);
+    } else {
+      setSourceFiles([
+        {
+          name: "uploaded-bundle.java",
+          relativePath: "uploaded-bundle.java",
+          content: mainTest.content,
+        },
+      ]);
+    }
+
+    setFileContent(mainTest.content);
+    setConvertedCode("");
+    setOutput("");
+    setExplanation("");
+    setMigrationRun(null);
+    setStatus("🔍 Server analyze complete — converting...");
+
+    await runConvertPipeline(mainTest.content, mainTest.mappedPOMs);
   };
 
   const handleDownload = () => {
@@ -120,7 +167,10 @@ function App() {
     >
       <h2 style={{ marginTop: 0, fontSize: 26, letterSpacing: 0.3 }}>⚡ SwiftMigrate</h2>
 
-      <FileUpload onSourcesChange={handleSourcesChange} />
+      <FileUpload
+        onSourcesChange={handleSourcesChange}
+        onUploadAnalyzed={onUploadAnalyzed}
+      />
 
       <button onClick={handleConvertRun} disabled={!fileContent || loading}>
         {loading ? "Processing..." : "Convert & Run"}

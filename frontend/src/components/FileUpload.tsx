@@ -1,10 +1,14 @@
-import React, { useRef, useState } from "react";
+import { useRef, useState, type FC } from "react";
 import JSZip from "jszip";
 import type { SourceFile } from "../utils/mergeSources";
 import { mergeJavaSources } from "../utils/mergeSources";
+import type { UploadAnalyzeResponse } from "../services/api";
+
+const API_BASE = "http://localhost:3000";
 
 type Props = {
   onSourcesChange: (sources: SourceFile[], mergedContent: string) => void;
+  onUploadAnalyzed?: (data: UploadAnalyzeResponse | null) => void;
 };
 
 function readFileAsText(file: File): Promise<string> {
@@ -32,9 +36,11 @@ async function javaFilesFromZip(file: File): Promise<SourceFile[]> {
   return out;
 }
 
-const FileUpload: React.FC<Props> = ({ onSourcesChange }) => {
+const FileUpload: FC<Props> = ({ onSourcesChange, onUploadAnalyzed }) => {
   const [sources, setSources] = useState<SourceFile[]>([]);
+  const [rawFiles, setRawFiles] = useState<File[]>([]);
   const [error, setError] = useState<string>("");
+  const [uploadLoading, setUploadLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const pushMerged = (next: SourceFile[]) => {
@@ -48,6 +54,7 @@ const FileUpload: React.FC<Props> = ({ onSourcesChange }) => {
     if (!list?.length) return;
 
     setError("");
+    setRawFiles(Array.from(list));
     const collected: SourceFile[] = [];
 
     for (let i = 0; i < list.length; i++) {
@@ -95,10 +102,42 @@ const FileUpload: React.FC<Props> = ({ onSourcesChange }) => {
     e.target.value = "";
   };
 
+  const handleUploadAnalyze = async () => {
+    if (!onUploadAnalyzed || rawFiles.length === 0) return;
+
+    const formData = new FormData();
+    rawFiles.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    try {
+      setUploadLoading(true);
+      setError("");
+      const res = await fetch(`${API_BASE}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = (await res.json()) as UploadAnalyzeResponse;
+      if (!res.ok) {
+        setError(data.error || "Upload failed");
+        onUploadAnalyzed(null);
+        return;
+      }
+      onUploadAnalyzed(data);
+    } catch {
+      setError("Upload & analyze failed — is the backend running?");
+      onUploadAnalyzed(null);
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
   const handleClear = () => {
     setSources([]);
+    setRawFiles([]);
     setError("");
     onSourcesChange([], "");
+    onUploadAnalyzed?.(null);
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -106,7 +145,8 @@ const FileUpload: React.FC<Props> = ({ onSourcesChange }) => {
     <div style={{ marginBottom: 20 }}>
       <div style={{ marginBottom: 8, color: "#c9d1d9", fontSize: 14 }}>
         Upload one or more <strong>.java</strong> files and/or a <strong>.zip</strong> (Java sources
-        inside the archive are merged in order for migration).
+        inside the archive are merged in order for migration). Files load in the editor immediately;
+        optionally run <strong>Upload &amp; analyze</strong> on the server first.
       </div>
       <input
         ref={inputRef}
@@ -135,9 +175,20 @@ const FileUpload: React.FC<Props> = ({ onSourcesChange }) => {
               <strong style={{ color: "#c9d1d9" }}>{sources.length}</strong> file
               {sources.length === 1 ? "" : "s"} loaded
             </p>
-            <button type="button" onClick={handleClear}>
-              Clear all
-            </button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {onUploadAnalyzed && (
+                <button
+                  type="button"
+                  onClick={handleUploadAnalyze}
+                  disabled={uploadLoading || rawFiles.length === 0}
+                >
+                  {uploadLoading ? "Processing..." : "Upload & analyze"}
+                </button>
+              )}
+              <button type="button" onClick={handleClear}>
+                Clear all
+              </button>
+            </div>
           </div>
           <ul
             style={{
