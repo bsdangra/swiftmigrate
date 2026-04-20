@@ -40,6 +40,10 @@ export const convertRun = async (
   const res = await axios.post(`${API_BASE}/convert-run`, {
     code,
     mappedPOMs: options?.mappedPOMs,
+export const convertRun = async ({ test, mappedPOMs}: { test: string; mappedPOMs: any[];}) => {
+  const res = await axios.post(`${API_BASE}/convert-run`, {
+    test,
+    mappedPOMs,
   });
 
   return res.data as ConvertRunResponse;

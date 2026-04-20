@@ -76,6 +76,57 @@ function App() {
     try {
       const res = await convertRun(seleniumCode, { mappedPOMs });
       applyConvertResponse(res);
+  const onProcessComplete = async (data: any) => {
+    if (!data || !data.tests || data.tests.length === 0) {
+      setStatus("❌ No test files found");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setStatus("🔍 Analyzing...");
+
+      // ✅ Step 1: Pick main test file
+      const mainTest = data.tests[0];
+
+      setFileContent(mainTest.content); // show in UI
+
+      setStatus("🔄 Converting...");
+      setTimeout(() => setStatus("⚙️ Running test..."), 1500);
+      setTimeout(() => setStatus("🛠 Fixing issues..."), 3000);
+
+      // ✅ Step 2: Call convert-run
+      const res = await convertRun({
+        test: mainTest.content,
+        mappedPOMs: mainTest.mappedPOMs
+      });
+
+      setConvertedCode(res.playwrightCode || "");
+
+      const rawOutput = res.logs || res.error || "";
+
+      const cleanLogs = rawOutput
+        .split("\n")
+        .filter(line => line.trim() !== "")
+        .slice(-10)
+        .join("\n");
+
+      setOutput(cleanLogs);
+
+      setAttempts(res.attempts || 1);
+      setHealed(res.healed || false);
+      setExplanation(res.explanation || "");
+
+      if (res.success) {
+        if (res.healed) {
+          setStatus(`🛠 Auto-healed in ${res.attempts} attempts`);
+        } else {
+          setStatus("✅ Converted & Passed");
+        }
+      } else {
+        setStatus("❌ Failed after retries");
+      }
+
     } catch (err) {
       console.error(err);
       setStatus("❌ Something went wrong");
@@ -133,6 +184,9 @@ function App() {
     setStatus("🔍 Server analyze complete — converting...");
 
     await runConvertPipeline(mainTest.content, mainTest.mappedPOMs);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDownload = () => {
@@ -175,6 +229,7 @@ function App() {
       <button onClick={handleConvertRun} disabled={!fileContent || loading}>
         {loading ? "Processing..." : "Convert & Run"}
       </button>
+      <FileUpload onProcessComplete={onProcessComplete} />
 
       <p>
         <strong>Status:</strong> {status}
