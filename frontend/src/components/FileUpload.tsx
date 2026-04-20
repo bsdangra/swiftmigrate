@@ -1,41 +1,80 @@
 import React, { useState } from "react";
 
 type Props = {
-  onFileRead: (content: string) => void;
+  onProcessComplete: (data: any) => void; // final analyzed data
 };
 
-const FileUpload: React.FC<Props> = ({ onFileRead }) => {
-  const [fileName, setFileName] = useState<string>("");
+const FileUpload: React.FC<Props> = ({ onProcessComplete }) => {
+  const [files, setFiles] = useState<File[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles) return;
 
-    setFileName(file.name);
+    setFiles(Array.from(selectedFiles));
+  };
 
-    const reader = new FileReader();
+  const handleUpload = async () => {
+    if (files.length === 0) return;
 
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      onFileRead(content);
-    };
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("files", file);
+    });
 
-    reader.readAsText(file);
+    try {
+      setLoading(true);
+
+      const res = await fetch("http://localhost:3000/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      console.log("🚀 Full Response:", data);
+
+      // ✅ Final output to parent
+      onProcessComplete(data);
+
+    } catch (err) {
+      console.error("❌ Process failed", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleClear = () => {
-    setFileName("");
-    onFileRead("");
+    setFiles([]);
+    onProcessComplete(null);
   };
 
   return (
     <div style={{ marginBottom: 20 }}>
-      <input type="file" accept=".java" onChange={handleFile} />
+      <input
+        type="file"
+        multiple
+        accept=".java,.zip"
+        onChange={handleFileChange}
+      />
 
-      {fileName && (
+      {files.length > 0 && (
         <div style={{ marginTop: 10 }}>
-          <p>📄 {fileName}</p>
-          <button onClick={handleClear}>Clear</button>
+          <p>📂 Selected Files:</p>
+          <ul>
+            {files.map((file, index) => (
+              <li key={index}>📄 {file.name}</li>
+            ))}
+          </ul>
+
+          <button onClick={handleUpload} disabled={loading}>
+            {loading ? "Processing..." : "Upload & Analyze"}
+          </button>
+
+          <button onClick={handleClear} style={{ marginLeft: 10 }}>
+            Clear
+          </button>
         </div>
       )}
     </div>

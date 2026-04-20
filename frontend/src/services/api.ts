@@ -3,9 +3,10 @@ import axios from "axios";
 const API_BASE = "http://localhost:3000";
 
 // 🔥 Main API: Convert + Run + Self-Heal
-export const convertRun = async (fileContent: string) => {
+export const convertRun = async ({ test, mappedPOMs}: { test: string; mappedPOMs: any[];}) => {
   const res = await axios.post(`${API_BASE}/convert-run`, {
-    code: fileContent,
+    test,
+    mappedPOMs,
   });
 
   return res.data as {
