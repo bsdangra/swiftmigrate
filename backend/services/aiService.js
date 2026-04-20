@@ -5,9 +5,9 @@ dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-
 export const convertWithAI = async (
   seleniumCode,
+  pageObjects = [],
   errorContext = "",
   preprocessResult = null,
   previousPlaywrightCode = "",
@@ -19,6 +19,7 @@ export const convertWithAI = async (
 
   const prompt = buildPrompt({
     seleniumCode,
+    pageObjects,
     errorContext,
     preprocessResult,
     previousPlaywrightCode,
@@ -35,261 +36,234 @@ export const convertWithAI = async (
 
 function buildPrompt({
   seleniumCode,
+  pageObjects,
   errorContext,
   preprocessResult,
   previousPlaywrightCode,
   steps
 }) {
   return `
-${baseBlock()}
-${optimizationBlock()}
-${safetyBlock()}
-${intentBlock(steps)}
-${preprocessBlock(preprocessResult)}
-${repairBlock(previousPlaywrightCode)}
-${failureBlock(errorContext)}
-
-Selenium Code (SOURCE OF TRUTH):
-${seleniumCode}
-`;
-}
-
-function baseBlock() {
-  return `
+TASK:
 Convert Selenium Java test into Playwright TypeScript.
 
-CRITICAL REQUIREMENT:
-- Preserve user journey
-- Do NOT skip steps unless absolutely invalid
-- Replace failing steps with safe alternatives
-- Selenium is SOURCE OF TRUTH
+================================
+TEST (SOURCE OF TRUTH)
+================================
+${seleniumCode}
 
-SAFETY OVERRIDES ALL OTHER RULES
+================================
+PAGE OBJECTS (RELEVANT ONLY)
+================================
+${getRelevantPOMContext(seleniumCode, pageObjects)}
 
-STRICT RULES:
-- MUST use @playwright/test
-- MUST wrap inside test('name', async ({ page }) => {})
-- MUST be runnable
-- Use async/await
-- Prefer getByRole/getByText/getByLabel
-- NO explanations
-- RETURN ONLY CODE
-`;
-}
+================================
+TEST STEPS
+================================
+${steps?.join("\n") || "N/A"}
 
-function optimizationBlock() {
-  return `
-OPTIMIZATION:
-- Avoid redundant checks (no waitFor + count together)
-- Prefer locator.count()
-- Avoid unnecessary try-catch
-- Prefer meaningful assertions
+================================
+KNOWN ISSUES
+================================
+${preprocessResult?.issues?.map(i => `- ${i.message}`).join("\n") || "None"}
 
-ASSERTION RULES:
-- Prefer validating visible content (text, headings)
-- Avoid generic assertions like title unless no better option
-- Use page.locator() based assertions when possible
+================================
+PREVIOUS ERROR (if any)
+================================
+${errorContext || "None"}
 
-`;
-}
+================================
+PREVIOUS ATTEMPT (if any)
+================================
+${previousPlaywrightCode || "None"}
 
-function safetyBlock() {
-  return `
-SAFE INTERACTION (MANDATORY):
-- NEVER interact without checking existence
-
-Pattern:
-const el = page.locator('selector');
-
-if (await el.count() > 0) {
-  await el.click();
-} else {
-  await expect(page).toHaveTitle(/expected/i);
-}
-
-- If element missing:
-  → DO NOT fail
-  → DO NOT skip flow
-  → fallback to validation
-`;
-}
-
-function intentBlock(steps) {
-  if (!steps?.length) return "";
-
-  return `
-TEST INTENT:
-${steps.map(s => `- ${s}`).join("\n")}
-`;
-}
-
-function preprocessBlock(preprocessResult) {
-  if (!preprocessResult?.promptHints?.length) return "";
-
-  return `
-CODE ISSUES DETECTED:
-${preprocessResult.promptHints.map(h => `- ${h}`).join("\n")}
-`;
-}
-
-function repairBlock(previousPlaywrightCode) {
-  if (!previousPlaywrightCode) return "";
-
-  return `
-FIX THIS EXISTING CODE (DO NOT REWRITE):
-${previousPlaywrightCode}
-
-RULES:
-- Preserve working parts
-- Modify only failing sections
+================================
+RULES (STRICT)
+================================
+- Preserve full test flow
 - Do NOT remove steps
-- Convert failing locators into safe interaction
+- Do NOT invent locators
+- Use ONLY locators from Page Objects
+- Inline POM methods logically
+- Maintain assertions
+- Prefer locators from Page Objects
+- If locator is missing, infer using text, role, or label
+- Include page.goto() only if the test involves opening the application or login flow
+- Always wait for elements before interacting (waitFor or expect)
+
+================================
+PLAYWRIGHT RULES
+================================
+- Use @playwright/test
+- Wrap in test(...)
+- Use async/await
+- Prefer page.locator()
+- Use expect() for assertions
+
+================================
+OUTPUT
+================================
+Return ONLY Playwright code
 `;
 }
 
-function failureBlock(errorContext) {
-  if (!errorContext) return "";
 
-  return `
-RUNTIME FAILURE:
+// 🔥 MAIN POM CONTEXT BUILDER
+function getRelevantPOMContext(testCode, pageObjects = []) {
+  if (!pageObjects.length) return "No page objects provided";
 
-${errorContext}
+  const calledMethods = extractCalledMethods(testCode);
 
-FIX STRATEGY:
-- Identify failing step
-- Missing element → use safe interaction
-- Weak locator → improve selector
-- Invalid action → replace with validation
+  let result = "";
+
+  pageObjects.forEach(pom => {
+    const methodsMap = extractAllMethods(pom.content);
+
+    // 🔥 include 1-level dependency
+    const allMethods = new Set(calledMethods);
+
+    calledMethods.forEach(method => {
+      const body = methodsMap[method]?.body || "";
+      const innerCalls = extractInnerMethodCalls(body);
+      innerCalls.forEach(m => allMethods.add(m));
+    });
+
+    const relevantMethods = Object.entries(methodsMap)
+      .filter(([name]) => allMethods.has(name))
+      .map(([_, m]) => m.full)
+      .join("\n");
+
+    if (!relevantMethods) return;
+
+    const relevantLocators = extractRelevantLocators(
+      pom.content,
+      relevantMethods
+    );
+
+    result += `
+File: ${pom.fileName}
+
+LOCATORS:
+${relevantLocators || "None"}
+
+METHODS:
+${relevantMethods}
 `;
+  });
+
+  return result || "No relevant methods found";
 }
 
 
-// export const convertWithAI = async (
-//   seleniumCode, 
-//   errorContext = "", 
-//   preprocessResult = null,
-//   previousPlaywrightCode = "",
-//   steps = []
-// ) => {
-//   const model = genAI.getGenerativeModel({
-//     model: "gemini-3.1-pro-preview",
-//   });
+// 🔥 Extract all methods with body + full text
+function extractAllMethods(content) {
+  const methodRegex =
+    /public\s+(?:\w+\s+)*(\w+)\s*\((.*?)\)\s*{([\s\S]*?)}/g;
 
-//   const prompt = `
-// Convert Selenium Java test into Playwright TypeScript.
+  const methods = {};
+  let match;
 
-// CRITICAL REQUIREMENT:
-// - The Playwright test MUST cover the same user journey as Selenium
-// - Do NOT skip steps unless absolutely invalid
-// - If a step fails, replace it with equivalent safe logic (not remove it)
-// - Selenium code is the SOURCE OF TRUTH for intent
+  while ((match = methodRegex.exec(content)) !== null) {
+    const name = match[1];
 
-// OPTIMIZATION RULES:
-// - Avoid redundant checks (do NOT use both waitFor and count)
-// - Prefer simple conditional checks using locator.count()
-// - Avoid unnecessary try-catch unless required
-// - Prefer meaningful assertions (text/content) over generic ones
+    methods[name] = {
+      name,
+      body: match[3],
+      full: match[0]
+    };
+  }
 
-// STRICT RULES:
-// - MUST use @playwright/test
-// - MUST wrap inside test('name', async ({ page }) => {})
-// - MUST be directly runnable
-// - Use async/await
-// - Prefer robust selectors:
-//   - page.getByRole()
-//   - page.getByText()
-//   - page.getByLabel()
-// - Avoid brittle selectors like random IDs unless clearly valid
-// - NO explanations
-// - NO markdown
-// - RETURN ONLY CODE
+  return methods;
+}
 
-// MANDATORY SAFETY RULE (VERY IMPORTANT):
-// - NEVER directly interact with elements (click/type) without checking existence
-// - ALWAYS use safe interaction pattern:
 
-// Example:
-// const el = page.locator('selector');
-// if (await el.count() > 0) {
-//   await el.click(); // or type/fill
-// } else {
-//   // fallback validation
-//   await expect(page).toHaveTitle(/expected/i);
-// }
+// 🔍 Extract called methods from test
+function extractCalledMethods(testCode) {
+  const regex = /\b\w+\.(\w+)\(/g;
 
-// - If element does NOT exist:
-//   → DO NOT throw error
-//   → DO NOT skip the flow
-//   → Replace with fallback validation (title or visible text)
+  const methods = new Set();
+  let match;
 
-// ${
-//   steps?.length
-//     ? `
-// TEST INTENT (MUST BE PRESERVED):
-// The Playwright test MUST include:
-// ${steps.map(s => `- ${s}`).join("\n")}
-// `
-//     : ""
-// }
+  while ((match = regex.exec(testCode)) !== null) {
+    methods.add(match[1]);
+  }
 
-// ${
-//   preprocessResult?.promptHints?.length
-//     ? `
-// ADDITIONAL INSTRUCTIONS BASED ON CODE ANALYSIS:
-// ${preprocessResult.promptHints.map(h => `- ${h}`).join("\n")}
-// `
-//     : ""
-// }
+  return Array.from(methods);
+}
 
-// ${
-//   previousPlaywrightCode
-//     ? `
-// PREVIOUS PLAYWRIGHT CODE (FAILED):
-// ${previousPlaywrightCode}
 
-// IMPORTANT REPAIR INSTRUCTIONS:
-// - Fix this existing Playwright code instead of rewriting from scratch
-// - Preserve working parts
-// - Only modify failing sections
-// - Do NOT remove steps unless absolutely invalid
-// - If a locator fails:
-//   → convert it into safe interaction (count() check + fallback)
-// `
-//     : ""
-// }
+// 🔥 Extract nested method calls (1-level)
+function extractInnerMethodCalls(methodBody = "") {
+  const regex = /\b(\w+)\(/g;
 
-// ${
-//   errorContext
-//     ? `
-// RUNTIME FAILURE CONTEXT:
+  const methods = new Set();
+  let match;
 
-// Error:
-// ${errorContext}
+  while ((match = regex.exec(methodBody)) !== null) {
+    methods.add(match[1]);
+  }
 
-// FIX STRATEGY:
-// - Identify failing step
-// - If failure is due to missing element:
-//   → Replace direct interaction with safe conditional logic
-// - If locator is weak:
-//   → Improve selector (role/text/label)
-// - If action is invalid:
-//   → Replace with equivalent validation
-// `
-//     : ""
-// }
+  return Array.from(methods);
+}
 
-// Selenium Code (SOURCE OF TRUTH):
-// ${seleniumCode}
-// `;
 
-//   const result = await model.generateContent(prompt);
+// 🔥 Extract relevant locators (FIXED)
+function extractRelevantLocators(pomContent, methodsContent) {
+  const usedVars = extractUsedVariables(methodsContent);
+  const lines = pomContent.split("\n");
 
-//   let text =
-//     result.response?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  let result = "";
 
-//   return cleanCode(text);
-// };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
 
+    const matchedVar = usedVars.find(v => line.includes(v));
+
+    if (matchedVar) {
+      // include @FindBy above
+      if (i > 0 && lines[i - 1].includes("@FindBy")) {
+        result += lines[i - 1] + "\n";
+      }
+
+      // include only locator declaration (clean)
+      if (
+        line.includes("WebElement") ||
+        line.includes("By.") ||
+        line.includes("@FindBy")
+      ) {
+        result += line + "\n";
+      }
+    }
+  }
+
+  return result.trim();
+}
+
+
+// 🔍 Extract variables used in methods
+function extractUsedVariables(methodsContent) {
+  const regex = /\b([a-zA-Z_]\w*)\./g;
+
+  const vars = new Set();
+  let match;
+
+  while ((match = regex.exec(methodsContent)) !== null) {
+    vars.add(match[1]);
+  }
+
+  return Array.from(vars);
+}
+
+
+// 🔧 Clean AI output
+function cleanCode(code) {
+  return code
+    .replace(/```[a-z]*\n?/gi, "")
+    .replace(/```/g, "")
+    .trim();
+}
+
+
+// 🔍 EXPLAIN CHANGES
 export const explainChanges = async (seleniumCode, playwrightCode) => {
   const model = genAI.getGenerativeModel({
     model: "gemini-3.1-pro-preview",
@@ -301,9 +275,7 @@ Compare Selenium and Playwright code.
 Explain in 3-4 bullet points:
 - What changed
 - Why changes were made
-- Any fixes applied (like invalid selectors)
-
-Keep it simple, developer-friendly.
+- Any fixes applied
 
 Selenium:
 ${seleniumCode}
@@ -317,6 +289,8 @@ ${playwrightCode}
   return result.response?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 };
 
+
+// 🔍 VERIFY INTENT
 export const verifyIntent = async (seleniumCode, playwrightCode) => {
   const model = genAI.getGenerativeModel({
     model: "gemini-3.1-pro-preview",
@@ -325,15 +299,12 @@ export const verifyIntent = async (seleniumCode, playwrightCode) => {
   const prompt = `
 Compare Selenium and Playwright test.
 
-Does the Playwright test preserve:
+Does Playwright preserve:
 - same user journey
-- same key actions (click, input, navigation)
+- same actions
 - same validations
 
-Answer ONLY:
-YES or NO
-
-If NO, give short reason.
+Answer ONLY: YES or NO
 
 Selenium:
 ${seleniumCode}
@@ -346,12 +317,3 @@ ${playwrightCode}
 
   return result.response?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 };
-
-
-// 🔧 Clean AI output (VERY IMPORTANT)
-function cleanCode(code) {
-  return code
-    .replace(/```[a-z]*\n?/gi, "")
-    .replace(/```/g, "")
-    .trim();
-}

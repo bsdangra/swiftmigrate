@@ -14,23 +14,39 @@ function App() {
   const [healed, setHealed] = useState<boolean>(false);
   const [explanation, setExplanation] = useState<string>("");
 
-  const handleConvertRun = async () => {
-    setLoading(true);
-    setStatus("🔄 Converting...");
-    setTimeout(() => setStatus("⚙️ Running test..."), 800);
-    setTimeout(() => setStatus("🛠 Fixing issues..."), 1600);
+  const onProcessComplete = async (data: any) => {
+    if (!data || !data.tests || data.tests.length === 0) {
+      setStatus("❌ No test files found");
+      return;
+    }
 
     try {
-      const res = await convertRun(fileContent);
+      setLoading(true);
+      setStatus("🔍 Analyzing...");
+
+      // ✅ Step 1: Pick main test file
+      const mainTest = data.tests[0];
+
+      setFileContent(mainTest.content); // show in UI
+
+      setStatus("🔄 Converting...");
+      setTimeout(() => setStatus("⚙️ Running test..."), 1500);
+      setTimeout(() => setStatus("🛠 Fixing issues..."), 3000);
+
+      // ✅ Step 2: Call convert-run
+      const res = await convertRun({
+        test: mainTest.content,
+        mappedPOMs: mainTest.mappedPOMs
+      });
 
       setConvertedCode(res.playwrightCode || "");
-      
+
       const rawOutput = res.logs || res.error || "";
 
       const cleanLogs = rawOutput
         .split("\n")
         .filter(line => line.trim() !== "")
-        .slice(-10) // last 10 meaningful lines
+        .slice(-10)
         .join("\n");
 
       setOutput(cleanLogs);
@@ -48,12 +64,14 @@ function App() {
       } else {
         setStatus("❌ Failed after retries");
       }
+
     } catch (err) {
+      console.error(err);
       setStatus("❌ Something went wrong");
       setOutput("Server error");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const handleDownload = () => {
@@ -74,11 +92,7 @@ function App() {
     <div style={{ padding: 20 }}>
       <h2>⚡ SwiftMigrate</h2>
 
-      <FileUpload onFileRead={setFileContent} />
-
-      <button onClick={handleConvertRun} disabled={!fileContent || loading}>
-        {loading ? "Processing..." : "Convert & Run"}
-      </button>
+      <FileUpload onProcessComplete={onProcessComplete} />
 
       <p><strong>Status:</strong> {status}</p>
 
