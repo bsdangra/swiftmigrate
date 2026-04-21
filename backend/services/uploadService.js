@@ -1,6 +1,7 @@
 import AdmZip from "adm-zip";
 import fsExtra from "fs-extra";
 import path from "path";
+import { extractDependencies } from "../dependencyExtractor.js";
 
 // 🔍 Detect file type
 export function detectFileType(content) {
@@ -31,9 +32,13 @@ export async function handleZip(zipPath) {
   const javaFiles = getAllJavaFiles(extractPath);
 
   const results = [];
+  const classIndex = {};   // shared map of class and path
+  const dependenyJson = [];      // depedency json
 
   for (const filePath of javaFiles) {
     const content = await fsExtra.readFile(filePath, "utf-8");
+    const classAnalysis = extractDependencies(filePath, classIndex);
+    dependenyJson.push(classAnalysis);
 
     results.push({
       fileName: path.basename(filePath),
@@ -41,6 +46,8 @@ export async function handleZip(zipPath) {
       type: detectFileType(content),
     });
   }
+  console.log("handleZip - classIndex", { classIndex });
+  console.dir(dependenyJson, { depth: null });
 
   return results;
 }
