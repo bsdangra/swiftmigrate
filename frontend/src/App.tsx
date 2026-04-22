@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import FileUpload from "./components/FileUpload";
 import CodeViewer from "./components/CodeViewer";
 import OutputConsole from "./components/OutputConsole";
-import { convertRun } from "./services/api";
+import { convertRun, processProject } from "./services/api";
 
 function App() {
   const [fileContent, setFileContent] = useState<string>("");
@@ -15,55 +15,57 @@ function App() {
   const [explanation, setExplanation] = useState<string>("");
 
   const onProcessComplete = async (data: any) => {
-    if (!data || !data.tests || data.tests.length === 0) {
-      setStatus("❌ No test files found");
-      return;
-    }
+    // if (!data || !data.tests || data.tests.length === 0) {
+    //   setStatus("❌ No test files found");
+    //   return;
+    // }
 
     try {
       setLoading(true);
       setStatus("🔍 Analyzing...");
 
       // ✅ Step 1: Pick main test file
-      const mainTest = data.tests[0];
+      // const mainTest = data.tests[0];
 
-      setFileContent(mainTest.content); // show in UI
+      // setFileContent(mainTest.content); // show in UI
 
-      setStatus("🔄 Converting...");
-      setTimeout(() => setStatus("⚙️ Running test..."), 1500);
-      setTimeout(() => setStatus("🛠 Fixing issues..."), 3000);
+      // setStatus("🔄 Converting...");
+      // setTimeout(() => setStatus("⚙️ Running test..."), 1500);
+      // setTimeout(() => setStatus("🛠 Fixing issues..."), 3000);
 
-      // ✅ Step 2: Call convert-run
-      const res = await convertRun({
-        test: mainTest.content,
-        mappedPOMs: mainTest.mappedPOMs
-      });
+      const res = await processProject({dependencyGraph: data.dependencyGraph});
 
-      setConvertedCode(res.playwrightCode || "");
+      // // ✅ Step 2: Call convert-run
+      // const res = await convertRun({
+      //   test: mainTest.content,
+      //   mappedPOMs: mainTest.mappedPOMs
+      // });
 
-      const rawOutput = res.logs || res.error || "";
+      // setConvertedCode(res.playwrightCode || "");
 
-      const cleanLogs = rawOutput
-        .split("\n")
-        .filter(line => line.trim() !== "")
-        .slice(-10)
-        .join("\n");
+      // const rawOutput = res.logs || res.error || "";
 
-      setOutput(cleanLogs);
+      // const cleanLogs = rawOutput
+      //   .split("\n")
+      //   .filter(line => line.trim() !== "")
+      //   .slice(-10)
+      //   .join("\n");
 
-      setAttempts(res.attempts || 1);
-      setHealed(res.healed || false);
-      setExplanation(res.explanation || "");
+      // setOutput(cleanLogs);
 
-      if (res.success) {
-        if (res.healed) {
-          setStatus(`🛠 Auto-healed in ${res.attempts} attempts`);
-        } else {
-          setStatus("✅ Converted & Passed");
-        }
-      } else {
-        setStatus("❌ Failed after retries");
-      }
+      // setAttempts(res.attempts || 1);
+      // setHealed(res.healed || false);
+      // setExplanation(res.explanation || "");
+
+      // if (res.success) {
+      //   if (res.healed) {
+      //     setStatus(`🛠 Auto-healed in ${res.attempts} attempts`);
+      //   } else {
+      //     setStatus("✅ Converted & Passed");
+      //   }
+      // } else {
+      //   setStatus("❌ Failed after retries");
+      // }
 
     } catch (err) {
       console.error(err);

@@ -11,15 +11,20 @@ import { convertWithAI, explainChanges, verifyIntent } from "./services/aiServic
 import { preprocess } from "./preprocess.js";
 import { extractSteps } from "./intentUtils.js";
 import { detectFailureType } from "./failureDetector.js";
-import { detectFramework, classifyFiles, mapTestsToPOMs } from "./utils/fileAnalyzer.js";
+import { detectFramework, classifyFiles, mapTestsToPOMs, filterRelevantFiles } from "./utils/fileAnalyzer.js";
 import { handleZip, detectFileType } from "./services/uploadService.js";
 import { resolvePOMWithReport } from "./services/pomResolver.js";
+import { buildDependencyGraph, topoSortWithBuckets } from './services/dependencyResolver.js';
+import { processFiles } from './services/conversionOrchestrator.js';
+import { runtimeSelfHeal } from './services/executionService.js';
+import { buildProject } from './services/projectBuilder.js'
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 const upload = multer({ dest: "uploads/" });
 
@@ -164,6 +169,7 @@ app.post("/upload", upload.array("files"), async (req, res) => {
     const uploadedFiles = req.files;
     let allJavaFiles = [];
 
+    // 🔥 1. Extract ALL files first
     for (const file of uploadedFiles) {
       const { originalname, path: filePath } = file;
 
@@ -182,19 +188,40 @@ app.post("/upload", upload.array("files"), async (req, res) => {
       }
     }
 
-    // ✅ NEW: Analyze inside upload
-    const framework = detectFramework(allJavaFiles);
-    const classified = classifyFiles(allJavaFiles);
+    // 🔥 2. FILTER (after extraction)
+    //const filteredFiles = filterRelevantFiles(allJavaFiles);
+    const filteredFiles = allJavaFiles;
 
+    // 🔥 3. Analyze
+    const framework = detectFramework(filteredFiles);
+
+    const classified = classifyFiles(filteredFiles);
+
+    // 🔥 4. Map tests → POMs
     const mappedTests = mapTestsToPOMs(
       classified.testFiles,
       classified.pageObjects
     );
 
-    // ✅ Final response (CLEAN STRUCTURE)
+    // 🔥 5. Build dependency graph
+    const dependencyGraph = buildDependencyGraph(
+      mappedTests,
+      classified.pageObjects,
+      classified.baseClasses
+    );
+
+    // 🔥 6. Return structured response
     res.json({
       framework,
-      tests: mappedTests,
+      summary: {
+        totalFiles: filteredFiles.length,
+        tests: classified.testFiles.length,
+        pages: classified.pageObjects.length,
+        base: classified.baseClasses.length,
+      },
+      classified,
+      mappedTests,
+      dependencyGraph   // 👈 IMPORTANT
     });
 
   } catch (error) {
@@ -202,6 +229,58 @@ app.post("/upload", upload.array("files"), async (req, res) => {
     res.status(500).json({ error: "Upload failed" });
   }
 });
+
+app.post("/process-project", async (req, res) => {
+  try {
+    const { dependencyGraph } = req.body;
+
+    // 🔥 STEP 1 — ORDER FILES
+    //const orderedFiles = topoSort(dependencyGraph);
+    const { ordered, unordered } = topoSortWithBuckets(dependencyGraph);
+
+    console.log("✅ Ordered:", ordered);
+    console.log("⚠️ Unordered:", unordered);
+
+    // 🚨 Guard: nothing to process
+    if (ordered.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid files to process",
+        unordered
+      });
+    }
+
+    //🔥 STEP 2 + 3 — CONVERT FILES
+    const convertedFiles = await processFiles(
+      ordered,
+      dependencyGraph
+    );
+
+    console.log('step 3 - ', convertedFiles);
+
+    // 🔥 Generate project
+    const projectPath = await buildProject(convertedFiles);
+
+    // 🔥 Runtime execution + healing
+    const executionResult = await runtimeSelfHeal(projectPath);
+
+    res.json({
+      success: executionResult.success,
+      attempts: executionResult.attempts,
+      logs: executionResult.logs,
+      error: executionResult.error,
+      projectPath,
+      ordered,
+      unordered,
+      convertedCount: Object.keys(convertedFiles).length
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Processing failed" });
+  }
+});
+
 
 function isValidPlaywrightCode(code) {
   if (!code) return false;

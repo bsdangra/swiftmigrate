@@ -23,6 +23,9 @@ backend/.env
 dist/
 build/
 out/
+output/
+temp/
+test-results/
 
 # =========================
 # Logs
