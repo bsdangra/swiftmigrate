@@ -7,7 +7,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export const convertWithAI = async (
   seleniumCode,
-  pageObjects = [],
+  dependencyCode = "",
   errorContext = "",
   preprocessResult = null,
   previousPlaywrightCode = "",
@@ -19,7 +19,7 @@ export const convertWithAI = async (
 
   const prompt = buildPrompt({
     seleniumCode,
-    pageObjects,
+    dependencyCode,
     errorContext,
     preprocessResult,
     previousPlaywrightCode,
@@ -36,7 +36,7 @@ export const convertWithAI = async (
 
 function buildPrompt({
   seleniumCode,
-  pageObjects,
+  dependencyCode,
   errorContext,
   preprocessResult,
   previousPlaywrightCode,
@@ -54,7 +54,7 @@ ${seleniumCode}
 ================================
 PAGE OBJECTS (RELEVANT ONLY)
 ================================
-${getRelevantPOMContext(seleniumCode, pageObjects)}
+${dependencyCode || "No dependencies"}
 
 ================================
 TEST STEPS

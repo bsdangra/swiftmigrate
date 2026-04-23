@@ -19,3 +19,19 @@ export const convertRun = async ({ test, mappedPOMs}: { test: string; mappedPOMs
     explanation?: string;
   };
 };
+
+export const processProject = async ({ dependencyGraph }: { dependencyGraph: any }) => {
+  const res = await axios.post(`${API_BASE}/process-project`, {
+    dependencyGraph
+  });
+
+  return res.data as {
+    success: boolean;
+    playwrightCode: string;
+    logs?: string;
+    error?: string;
+    attempts: number;
+    healed: boolean;
+    explanation?: string;
+  };
+};
