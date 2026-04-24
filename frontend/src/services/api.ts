@@ -27,11 +27,14 @@ export const processProject = async ({ dependencyGraph }: { dependencyGraph: any
 
   return res.data as {
     success: boolean;
-    playwrightCode: string;
-    logs?: string;
-    error?: string;
-    attempts: number;
-    healed: boolean;
-    explanation?: string;
+    attempts: number,
+    logs: string,
+    error: string,
+    projectPath: string,
+    zipPath: string,
+    reportPath: string,
+    ordered: string[],
+    unordered: string[],
+    convertedCount: number
   };
 };

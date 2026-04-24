@@ -1,3 +1,5 @@
+//import RULES from "./utils/rules.js";
+
 export const RULES = [
   {
     id: "hardcoded_wait",
