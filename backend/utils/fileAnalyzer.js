@@ -9,13 +9,13 @@ export function detectFramework(files) {
     const content = file.content || "";
 
     if (
-      content.includes("org.testng.annotations") ||
+      content.includes("org.testng") ||
       content.includes("@Test") && content.includes("TestNG")
     ) {
       isTestNG = true;
     }
 
-    if (content.includes("org.junit.")) {
+    if (content.includes("org.junit.") && !content.includes("org.junit.jupiter")) {
       isJUnit4 = true;
     }
 
@@ -46,24 +46,38 @@ export function classifyFiles(files) {
     const name = file.fileName.toLowerCase();
     const content = file.content || "";
 
-    const isTestByAnnotation = content.includes("@Test");
+    const isTestByAnnotation = /@Test\b/.test(content);
+    const hasLifecycleAnnotation = /@(BeforeClass|AfterClass|BeforeMethod|AfterMethod|BeforeTest|AfterTest|BeforeSuite|AfterSuite|BeforeGroups|AfterGroups|Before|After)\b/.test(content);
     const isPageByContent =
       content.includes("WebElement") ||
       content.includes("PageFactory") ||
-      content.includes("@FindBy");
-
+      content.includes("@FindBy") ||
+      content.includes("@FindBys") ||
+      content.includes("@FindAll") ||
+      content.includes("By ") ||
+      content.includes("findElement") ||
+      content.includes("findElements");
     const isBaseByContent =
       content.includes("WebDriver") &&
       (content.includes("setup") ||
         content.includes("initialize") ||
-        content.includes("driver ="));
-
+        content.includes("driver =") ||
+        content.includes("tearDown") ||
+        content.includes("quit") ||
+        content.includes("close") ||
+        content.includes("new ChromeDriver") ||
+        content.includes("new FirefoxDriver") ||
+        content.includes("new RemoteWebDriver") ||
+        hasLifecycleAnnotation);
     const isUtilityByName =
       name.includes("util") ||
       name.includes("helper") ||
       name.includes("manager") ||
       name.includes("logger") ||
-      name.includes("listener");
+      name.includes("listener") ||
+      name.includes("config") ||
+      name.includes("constant") ||
+      name.includes("properties");
 
     // ✅ 1. TEST (STRICT)
     if (
@@ -148,13 +162,28 @@ export function mapTestsToPOMs(testFiles, pageObjects) {
         cls.endsWith("Util") ||
         cls.endsWith("Manager") ||
         cls.endsWith("Logger") ||
-        cls.endsWith("Listener")
+        cls.endsWith("Listener") ||
+        cls.endsWith("Helper") ||
+        cls.endsWith("Config") ||
+        cls.endsWith("Constant")
       ),
 
       externalClasses: nonPOMClasses.filter(cls =>
         cls === "ChromeDriver" ||
+        cls === "FirefoxDriver" ||
+        cls === "EdgeDriver" ||
+        cls === "RemoteWebDriver" ||
         cls === "Logger" ||
-        cls === "SoftAssert"
+        cls === "SoftAssert" ||
+        cls === "WebDriverWait" ||
+        cls === "Actions" ||
+        cls === "Assert" ||
+        cls === "JavascriptExecutor" ||
+        cls === "ChromeOptions" ||
+        cls === "DesiredCapabilities" ||
+        cls === "EventFiringWebDriver" ||
+        cls === "Select" ||
+        cls === "Alert"
       )
     };
   });
@@ -164,6 +193,7 @@ export function filterRelevantFiles(files) {
   return files.filter(file => {
     const name = file.fileName.toLowerCase();
     const content = file.content || "";
+    const hasLifecycleAnnotation = /@(BeforeClass|AfterClass|BeforeMethod|AfterMethod|BeforeTest|AfterTest|BeforeSuite|AfterSuite|BeforeGroups|AfterGroups|Before|After)\b/.test(content);
 
     if (!name.endsWith(".java")) return false;
 
@@ -182,17 +212,27 @@ export function filterRelevantFiles(files) {
       name.includes("helper") ||
       name.includes("listener") ||
       name.includes("logger") ||
-      name.includes("manager")
+      name.includes("manager") ||
+      name.includes("config") ||
+      name.includes("constant") ||
+      name.includes("properties")
     ) {
       return true;
     }
 
     // ✅ fallback
     if (
-      content.includes("@Test") ||
+      /@Test\b/.test(content) ||
       content.includes("WebElement") ||
-      content.includes("By.") ||
-      content.includes("findElement")
+      content.includes("PageFactory") ||
+      content.includes("@FindBy") ||
+      content.includes("@FindBys") ||
+      content.includes("@FindAll") ||
+      content.includes("By ") ||
+      content.includes("findElement") ||
+      content.includes("findElements") ||
+      content.includes("WebDriver") ||
+      hasLifecycleAnnotation
     ) {
       return true;
     }
