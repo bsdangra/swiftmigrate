@@ -6,6 +6,7 @@ import fs from "fs";
 import { exec } from "child_process";
 import multer from "multer";
 import fsExtra from "fs-extra";
+import AdmZip from "adm-zip";
 
 import { convertWithAI, explainChanges, verifyIntent } from "./services/aiService.js";
 import { preprocess } from "./preprocess.js";
@@ -18,6 +19,7 @@ import { buildDependencyGraph, topoSortWithBuckets } from './services/dependency
 import { processFiles } from './services/conversionOrchestrator.js';
 import { runtimeSelfHeal } from './services/executionService.js';
 import { buildProject } from './services/projectBuilder.js'
+import { validatePlaywrightCode } from "./services/validator.js";
 
 dotenv.config();
 
@@ -26,10 +28,19 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+// Serve static files for reports
+app.use("/report", express.static("./output/playwright-report"));
+
 const upload = multer({ dest: "uploads/" });
 
 const PORT = 3000;
 const FILE_PATH = "./temp/test.spec.ts";
+const ZIP_OUTPUT_DIR = "./zips";
+
+// Ensure zip directory exists
+if (!fs.existsSync(ZIP_OUTPUT_DIR)) {
+  fs.mkdirSync(ZIP_OUTPUT_DIR, { recursive: true });
+}
 
 
 // 🏃 Run Playwright helper
@@ -53,7 +64,6 @@ async function runPlaywright(filePath) {
     );
   });
 }
-
 
 // 🔁 Self-Healing Engine (CORE)
 async function selfHeal(seleniumCode, pageObjects = []) {
@@ -90,7 +100,7 @@ async function selfHeal(seleniumCode, pageObjects = []) {
     );
 
     // 🔥 3. Fast validation BEFORE running Playwright
-    if (!isValidPlaywrightCode(playwrightCode)) {
+    if (!validatePlaywrightCode(playwrightCode)) {
       console.log("❌ Invalid Playwright code generated. Retrying...");
       lastError = "Generated code is invalid or incomplete.";
       continue;
@@ -148,7 +158,7 @@ ${failure.fix}
   };
 }
 
-
+//not being use currently
 // 🔥 MAIN FEATURE: Convert + Run + Self-Heal
 app.post("/convert-run", async (req, res) => {
   try {
@@ -173,9 +183,16 @@ app.post("/upload", upload.array("files"), async (req, res) => {
     for (const file of uploadedFiles) {
       const { originalname, path: filePath } = file;
 
+      // Skip macOS metadata files
+      if (originalname.startsWith("._")) {
+        continue;
+      }
+
       if (originalname.endsWith(".zip")) {
         const extracted = await handleZip(filePath);
-        allJavaFiles.push(...extracted);
+        // Filter out macOS metadata files from extracted files
+        const filtered = extracted.filter(f => !f.fileName.startsWith("._"));
+        allJavaFiles.push(...filtered);
       } 
       else if (originalname.endsWith(".java")) {
         const content = await fsExtra.readFile(filePath, "utf-8");
@@ -256,13 +273,14 @@ app.post("/process-project", async (req, res) => {
       dependencyGraph
     );
 
-    console.log('step 3 - ', convertedFiles);
-
     // 🔥 Generate project
     const projectPath = await buildProject(convertedFiles);
 
     // 🔥 Runtime execution + healing
     const executionResult = await runtimeSelfHeal(projectPath);
+
+    // 🔥 Create zip of project
+    const zipPath = await zipProject(projectPath);
 
     res.json({
       success: executionResult.success,
@@ -270,6 +288,8 @@ app.post("/process-project", async (req, res) => {
       logs: executionResult.logs,
       error: executionResult.error,
       projectPath,
+      zipPath,
+      reportPath: "/report",
       ordered,
       unordered,
       convertedCount: Object.keys(convertedFiles).length
@@ -282,15 +302,51 @@ app.post("/process-project", async (req, res) => {
 });
 
 
-function isValidPlaywrightCode(code) {
-  if (!code) return false;
+// 🔥 Create zip of project
+async function zipProject(projectPath) {
+  // Generate unique filename with timestamp
+  const timestamp = Date.now();
+  const zipFilename = `project-${timestamp}.zip`;
+  const zipPath = `${ZIP_OUTPUT_DIR}/${zipFilename}`;
+  const zip = new AdmZip();
 
-  return (
-    code.includes("test(") &&
-    code.includes("await") &&
-    code.includes("page")
-  );
+  try {
+    // Add entire project directory to zip, excluding node_modules
+    zip.addLocalFolder(projectPath, "", (file) => {
+      // Skip node_modules and other unnecessary directories
+      return !file.includes("node_modules") && 
+             !file.includes(".git") && 
+             !file.includes(".next") &&
+             !file.includes("dist") &&
+             !file.includes("build");
+    });
+    
+    zip.writeZip(zipPath);
+    console.log(`✅ Project zipped (excluded: node_modules, .git, .next, dist, build): ${zipPath}`);
+    // Return only the filename, not the full path
+    return zipFilename;
+  } catch (error) {
+    console.error("Zip error:", error);
+    throw error;
+  }
 }
+
+// 🔥 Download project zip
+app.get("/download/:zipName", (req, res) => {
+  // zipName should be just the filename (e.g., project-1234567890.zip)
+  const zipPath = `${ZIP_OUTPUT_DIR}/${req.params.zipName}`;
+  console.log(`Attempting to download: ${zipPath}`);
+
+  if (!fs.existsSync(zipPath)) {
+    return res.status(404).json({ error: `Zip file not found: ${zipPath}` });
+  }
+
+  res.download(zipPath, req.params.zipName, (err) => {
+    if (err) {
+      console.error("Download error:", err);
+    }
+  });
+});
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);

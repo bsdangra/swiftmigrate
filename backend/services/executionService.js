@@ -19,14 +19,14 @@ export async function runPlaywrightProject(projectPath) {
 
     console.log("▶️ Running tests...");
 
-    const { stdout } = await execAsync("npx playwright test", {
+    const { stdout } = await execAsync("npx playwright test --reporter=html", {
       cwd: projectPath,
       maxBuffer: 1024 * 1024 * 10
     });
 
     return {
       success: true,
-      logs: stdout
+      logs: stdout,
     };
 
   } catch (error) {

@@ -39,7 +39,7 @@ export async function processFiles(orderedFiles, dependencyGraph) {
       );
 
       // 🔥 Validate
-      const validation = validatePlaywrightCode(playwrightCode);
+      const validation = validatePlaywrightCode(playwrightCode, file.type);
 
       if (validation.valid) {
         console.log(`✅ Valid code for ${fileName}`);

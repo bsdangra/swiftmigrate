@@ -50,6 +50,9 @@ backend/test-results/
 backend/playwright-report/
 playwright-report/
 test-results/
+backend/output/
+backend/uploads/
+*.zip
 
 # =========================
 # Coverage
