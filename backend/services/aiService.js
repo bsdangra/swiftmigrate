@@ -11,19 +11,28 @@ export const convertWithAI = async (
   errorContext = "",
   preprocessResult = null,
   previousPlaywrightCode = "",
-  steps = []
+  steps = [],
+  framework = "unknown",
+  pageObjectContext
 ) => {
   const model = genAI.getGenerativeModel({
     model: "gemini-3.1-pro-preview",
   });
 
+  const normalizedDependencyCode = normalizeCodeInput(dependencyCode);
+  const normalizedPageObjectContext = normalizeCodeInput(
+    pageObjectContext ?? normalizedDependencyCode
+  );
+
   const prompt = buildPrompt({
     seleniumCode,
-    dependencyCode,
+    dependencyCode: normalizedDependencyCode,
+    pageObjectContext: normalizedPageObjectContext,
     errorContext,
     preprocessResult,
     previousPlaywrightCode,
-    steps
+    steps,
+    framework
   });
 
   const result = await model.generateContent(prompt);
@@ -34,32 +43,57 @@ export const convertWithAI = async (
   return cleanCode(text);
 };
 
+function normalizeCodeInput(input) {
+  if (Array.isArray(input)) {
+    return input
+      .map(item => normalizeCodeInput(item))
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
+  if (typeof input === "object" && input !== null) {
+    return normalizeCodeInput(input.content ?? input.code ?? input.body ?? "");
+  }
+
+  return typeof input === "string" ? input : "";
+}
+
 function buildPrompt({
   seleniumCode,
-  dependencyCode,
+  dependencyCode = "",
   errorContext,
   preprocessResult,
   previousPlaywrightCode,
-  steps
+  steps,
+  framework = "unknown",
+  pageObjectContext
 }) {
+  const resolvedDependencyCode = normalizeCodeInput(dependencyCode);
+  const resolvedPageObjectContext = normalizeCodeInput(
+    pageObjectContext ?? resolvedDependencyCode
+  );
+
   return `
 TASK:
 Convert Selenium Java test into Playwright TypeScript.
 
+FRAMEWORK:
+${framework}
+
 ================================
-TEST (SOURCE OF TRUTH)
+TEST SOURCE (SOURCE OF TRUTH)
 ================================
 ${seleniumCode}
 
 ================================
-PAGE OBJECTS (RELEVANT ONLY)
+RELEVANT PAGE OBJECT CONTEXT
 ================================
-${dependencyCode || "No dependencies"}
+${resolvedPageObjectContext || "No relevant page object context provided"}
 
 ================================
 TEST STEPS
 ================================
-${steps?.join("\n") || "N/A"}
+${steps?.length ? steps.join("\n") : "N/A"}
 
 ================================
 KNOWN ISSUES
@@ -67,42 +101,45 @@ KNOWN ISSUES
 ${preprocessResult?.issues?.map(i => `- ${i.message}`).join("\n") || "None"}
 
 ================================
-PREVIOUS ERROR (if any)
+PREVIOUS ERROR
 ================================
 ${errorContext || "None"}
 
 ================================
-PREVIOUS ATTEMPT (if any)
+PREVIOUS ATTEMPT
 ================================
 ${previousPlaywrightCode || "None"}
 
 ================================
-RULES (STRICT)
+STRICT CONVERSION RULES
 ================================
-- Preserve full test flow
-- Do NOT remove steps
-- Do NOT invent locators
-- Use ONLY locators from Page Objects
-- Inline POM methods logically
-- Maintain assertions
-- Prefer locators from Page Objects
-- If locator is missing, infer using text, role, or label
-- Include page.goto() only if the test involves opening the application or login flow
-- Always wait for elements before interacting (waitFor or expect)
+- Preserve the complete test flow and all user actions.
+- Keep the source test logic as close as possible to the original.
+- Use ONLY locators defined in the provided page object context.
+- Do NOT invent new locators unless absolutely necessary.
+- Convert Selenium constructs to Playwright equivalents.
+- Convert WebDriver waits and assertions to Playwright assertions or locator waits.
+- Translate page object methods to Playwright helper actions or inline them logically.
+- Preserve assertions, validations, and verification steps.
+- Prefer page.locator() and expect() for interactions and assertions.
+- Use async/await for all Playwright operations.
+- Do NOT return markdown, comments, or explanation text.
 
 ================================
 PLAYWRIGHT RULES
 ================================
 - Use @playwright/test
-- Wrap in test(...)
-- Use async/await
-- Prefer page.locator()
+- Wrap in test(...) blocks
+- Use fixtures only when needed
+- Use async functions and await every action
+- Use page.locator() over page.$ or direct selector strings when possible
 - Use expect() for assertions
+- Keep the output valid TypeScript code
 
 ================================
 OUTPUT
 ================================
-Return ONLY Playwright code
+Return ONLY valid Playwright TypeScript code. No markdown fences, no extra comments, no explanation.
 `;
 }
 
