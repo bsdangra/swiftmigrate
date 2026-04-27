@@ -3,7 +3,7 @@ import { convertWithAI } from "./aiService.js";
 import { validatePlaywrightCode } from "./validator.js";
 import { preprocess } from "../preprocess.js";
 
-export async function processFiles(orderedFiles, dependencyGraph) {
+export async function processFiles(orderedFiles, dependencyGraph, methodContentMap) {
   const memory = {};
   const maxAttempts = 2;
 
@@ -13,12 +13,10 @@ export async function processFiles(orderedFiles, dependencyGraph) {
 
     console.log(`\n🔄 Converting: ${fileName}`);
 
-    const context = buildContext(fileName, dependencyGraph, memory);
+    const context = buildContext(fileName, dependencyGraph, memory, methodContentMap);
 
-    const dependencyCode = context.dependencies
-      .map(dep => dep.content)
-      .join("\n\n");
-
+    const dependencyCode = context.dependencies;
+   
     const preprocessResult = preprocess(file.content);
 
     let attempt = 0;

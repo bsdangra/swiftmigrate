@@ -82,6 +82,96 @@ export function buildDependencyGraph(mappedTests, pageObjects, baseClasses) {
   return graph;
 }
 
+export function buildDependencyGraphWithUtil(
+  mappedTests,
+  pageObjects,
+  baseClasses,
+  utilityClasses = []
+) {
+  const graph = {};
+
+  // 🔥 1. Combine ALL files (now including utilities)
+  const allFiles = [
+    ...mappedTests,
+    ...pageObjects,
+    ...baseClasses,
+    ...utilityClasses
+  ];
+
+  // 🔥 2. Build className → fileName map
+  const classToFileMap = {};
+  allFiles.forEach(f => {
+    const className = f.fileName.replace(".java", "");
+    classToFileMap[className] = f.fileName;
+  });
+
+  // 🔥 3. Create lookup set
+  const fileNameSet = new Set(
+    allFiles.map(f => f.fileName.toLowerCase())
+  );
+
+  // 🔥 4. Initialize graph
+  allFiles.forEach(file => {
+    graph[file.fileName] = {
+      file,
+      dependsOn: [],
+      type: file.type
+    };
+  });
+
+  // 🔥 5. Resolve dependencies
+  allFiles.forEach(file => {
+    let dependencies = [];
+
+    // ✅ A. Existing logic (Test → POM)
+    if (file.type === "test" && file.mappedPOMs) {
+      dependencies.push(
+        ...file.mappedPOMs.map(p => p.fileName)
+      );
+    }
+
+    // ✅ B. NEW: Resolve dependencies via imports
+    if (file.imports && file.imports.length > 0) {
+      file.imports.forEach(imp => {
+        const className = imp.split(".").pop(); // Config, LoginPage
+        const resolvedFile = classToFileMap[className];
+
+        if (resolvedFile) {
+          dependencies.push(resolvedFile);
+        }
+      });
+    }
+
+    // ✅ C. Optional: inheritance (extends)
+    if (file.extends && file.extends.class) {
+      const baseClass = file.extends.class;
+      const resolvedBase = classToFileMap[baseClass];
+
+      if (resolvedBase) {
+        dependencies.push(resolvedBase);
+      }
+    }
+
+    // 🔥 6. Clean dependencies
+
+    // remove duplicates
+    dependencies = [...new Set(dependencies)];
+
+    // keep only project files
+    dependencies = dependencies.filter(dep =>
+      fileNameSet.has(dep.toLowerCase())
+    );
+
+    // remove self-dependency
+    dependencies = dependencies.filter(dep =>
+      dep !== file.fileName
+    );
+
+    graph[file.fileName].dependsOn = dependencies;
+  });
+
+  return graph;
+}
 
 // 🧠 Detect file type
 function detectType(fileName = "") {
@@ -169,19 +259,30 @@ export function topoSortWithBuckets(graph) {
 
 
 // 🧠 Build context for LLM (IMPORTANT)
-export function buildContext(fileName, graph, memory = {}) {
+export function buildContext(fileName, graph, memory, methodContentMap) {
   const node = graph[fileName];
 
   if (!node) return {};
+ 
+  let dependencies ="";
+   node.file.methods?.forEach(method => {
+   
+    method.calls?.forEach(call => {
+      if(call.targetClass && call.targetMethod){
+       
 
-  const dependencies = node.dependsOn.map(dep => ({
-    fileName: dep,
-    content: memory[dep]?.content || ""
-  }));
-
+      const key = `${call.targetClass}.${call.targetMethod}`;
+  
+      if (key in methodContentMap) {
+          dependencies += methodContentMap[key] + "\n";
+      }
+    }
+    });
+  });
   return {
     currentFile: fileName,
     type: node.type,
     dependencies
   };
+
 }

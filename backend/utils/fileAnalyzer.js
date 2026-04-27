@@ -46,7 +46,48 @@ export function classifyFiles(files) {
     const name = file.fileName.toLowerCase();
     const content = file.content || "";
 
-    const isTestByAnnotation = /@Test\b/.test(content);
+    const fileType = detectFileType(name, content);
+    // ✅ 1. TEST (STRICT)
+    if (fileType === ("test") 
+    ) {
+      result.testFiles.push(file);
+      return;
+    }
+
+    // ✅ 2. PAGE OBJECT
+    if (
+      fileType === ("pageObject")
+    ) {
+      result.pageObjects.push(file);
+      return;
+    }
+
+    // ✅ 3. BASE CLASS
+    if (
+      fileType === ("base")
+    ) {
+      result.baseClasses.push(file);
+      return;
+    }
+
+    // ✅ 4. UTILS / SUPPORT FILES
+    if (fileType === ("utility")) {
+      result.utils.push(file);
+      return;
+    }
+
+    // ❗ fallback
+    if (fileType === ("unknown")) {
+     result.ignored.push(file);
+    }
+  });
+
+  return result;
+}
+
+export function detectFileType(fileName, content){
+  console.log(`detectFileType filename ${fileName}`)
+  const isTestByAnnotation = /@Test\b/.test(content);
     const hasLifecycleAnnotation = /@(BeforeClass|AfterClass|BeforeMethod|AfterMethod|BeforeTest|AfterTest|BeforeSuite|AfterSuite|BeforeGroups|AfterGroups|Before|After)\b/.test(content);
     const isPageByContent =
       content.includes("WebElement") ||
@@ -70,53 +111,47 @@ export function classifyFiles(files) {
         content.includes("new RemoteWebDriver") ||
         hasLifecycleAnnotation);
     const isUtilityByName =
-      name.includes("util") ||
-      name.includes("helper") ||
-      name.includes("manager") ||
-      name.includes("logger") ||
-      name.includes("listener") ||
-      name.includes("config") ||
-      name.includes("constant") ||
-      name.includes("properties");
+      fileName.includes("util") ||
+      fileName.includes("helper") ||
+      fileName.includes("manager") ||
+      fileName.includes("logger") ||
+      fileName.includes("listener") ||
+      fileName.includes("config") ||
+      fileName.includes("constant") ||
+      fileName.includes("properties");
 
     // ✅ 1. TEST (STRICT)
     if (
-      name.endsWith("test.java") ||   // 🔥 stricter
+      fileName.endsWith("test.java") ||   // 🔥 stricter
       isTestByAnnotation
     ) {
-      result.testFiles.push(file);
-      return;
+      return "test";
     }
 
     // ✅ 2. PAGE OBJECT
     if (
-      name.endsWith("page.java") ||   // 🔥 stricter
+      fileName.endsWith("page.java") ||   // 🔥 stricter
       isPageByContent
     ) {
-      result.pageObjects.push(file);
-      return;
+      return "pageObject";
     }
 
     // ✅ 3. BASE CLASS
     if (
-      name.includes("base") ||
+      fileName.includes("base") ||
       isBaseByContent
     ) {
-      result.baseClasses.push(file);
-      return;
+      return "base";
     }
 
     // ✅ 4. UTILS / SUPPORT FILES
     if (isUtilityByName) {
-      result.utils.push(file);
-      return;
+      console.log(`detectFileType filename isUtilityByName`)
+      return "utility";
     }
 
     // ❗ fallback
-    result.ignored.push(file);
-  });
-
-  return result;
+    return "unknown";
 }
 
 export function extractUsedClasses(testContent) {
