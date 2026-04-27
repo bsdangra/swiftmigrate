@@ -1,6 +1,7 @@
 import AdmZip from "adm-zip";
 import fsExtra from "fs-extra";
 import path from "path";
+import { extractDependencies } from "../dependencyExtractor.js";
 
 // 🔍 Detect file type
 export function detectFileType(content) {
@@ -18,7 +19,7 @@ export function detectFileType(content) {
 }
 
 // 📦 Handle ZIP
-export async function handleZip(zipPath) {
+export async function handleZip(zipPath, classIndex, methodContentMap) {
   const zip = new AdmZip(zipPath);
 
   const extractPath = path.join(
@@ -30,19 +31,14 @@ export async function handleZip(zipPath) {
 
   const javaFiles = getAllJavaFiles(extractPath);
 
-  const results = [];
+  const dependencyJson = [];      // depedency json
 
   for (const filePath of javaFiles) {
-    const content = await fsExtra.readFile(filePath, "utf-8");
-
-    results.push({
-      fileName: path.basename(filePath),
-      content,
-      type: detectFileType(content),
-    });
+    const classAnalysis = extractDependencies(filePath, classIndex, methodContentMap);
+    dependencyJson.push(classAnalysis);
   }
 
-  return results;
+  return dependencyJson;
 }
 
 // 🔁 Recursive scan
