@@ -58,7 +58,7 @@ function App() {
       setTimeout(() => setStatus("🛠 Auto-healing issues..."), 4000);
 
       // Call process-project endpoint with dependency graph
-      const res = await processProject({dependencyGraph: data.dependencyGraph});
+      const res = await processProject({dependencyGraph: data.dependencyGraph, methodContentMap: data.methodContentMap});
 
       if (res.success) {
         setStatus(`✅ Project built successfully in ${res.attempts} attempts`);
