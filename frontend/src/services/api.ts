@@ -20,9 +20,10 @@ export const convertRun = async ({ test, mappedPOMs}: { test: string; mappedPOMs
   };
 };
 
-export const processProject = async ({ dependencyGraph }: { dependencyGraph: any }) => {
+export const processProject = async ({ dependencyGraph, methodContentMap }: { dependencyGraph: any, methodContentMap: any }) => {
   const res = await axios.post(`${API_BASE}/process-project`, {
-    dependencyGraph
+    dependencyGraph,
+    methodContentMap
   });
 
   return res.data as {
