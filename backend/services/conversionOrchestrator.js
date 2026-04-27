@@ -15,9 +15,9 @@ export async function processFiles(orderedFiles, dependencyGraph) {
 
     const context = buildContext(fileName, dependencyGraph, memory);
 
-    const dependencyCode = context.dependencies
-      .map(dep => dep.content)
-      .join("\n\n");
+    const dependencyCode = context.dependencies;
+    //  .map(dep => dep.content)
+    //  .join("\n\n");
 
     const preprocessResult = preprocess(file.content);
 
