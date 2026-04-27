@@ -13,7 +13,7 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
 
     console.log(`\n🔄 Converting: ${fileName}`);
 
-    const context = buildContext(fileName, dependencyGraph, memory, , methodContentMap);
+    const context = buildContext(fileName, dependencyGraph, memory, methodContentMap);
 
     const dependencyCode = context.dependencies;
    
