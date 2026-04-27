@@ -65,9 +65,6 @@ function buildPrompt({
 TASK:
 Convert Selenium Java test into Playwright TypeScript.
 
-FRAMEWORK:
-${framework}
-
 ================================
 TEST SOURCE (SOURCE OF TRUTH)
 ================================
