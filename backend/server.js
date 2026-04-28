@@ -13,13 +13,14 @@ import { preprocess } from "./preprocess.js";
 import { extractSteps } from "./intentUtils.js";
 import { detectFailureType } from "./failureDetector.js";
 import { detectFramework, classifyFiles, mapTestsToPOMs, filterRelevantFiles } from "./utils/fileAnalyzer.js";
-import { handleZip, detectFileType } from "./services/uploadService.js";
+import { handleZip } from "./services/uploadService.js";
 import { resolvePOMWithReport } from "./services/pomResolver.js";
 import { buildDependencyGraph, topoSortWithBuckets, buildDependencyGraphWithUtil } from './services/dependencyResolver.js';
 import { processFiles } from './services/conversionOrchestrator.js';
 import { runtimeSelfHeal } from './services/executionService.js';
 import { buildProject } from './services/projectBuilder.js'
 import { validatePlaywrightCode } from "./services/validator.js";
+import { extractDependencies } from "./dependencyExtractor.js";
 
 dotenv.config();
 
@@ -197,13 +198,9 @@ app.post("/upload", upload.array("files"), async (req, res) => {
         allJavaFiles.push(...filtered);
       } 
       else if (originalname.endsWith(".java")) {
-        const content = await fsExtra.readFile(filePath, "utf-8");
-
-        allJavaFiles.push({
-          fileName: originalname,
-          content,
-          type: detectFileType(content),
-        });
+        const extract = extractDependencies(filePath, classIndex, methodContentMap)
+        extract.fileName = originalname;
+        allJavaFiles.push(extract);
       }
     }
 
