@@ -220,7 +220,7 @@ app.post("/upload", upload.array("files"), async (req, res) => {
     );
 
     // 🔥 5. Build dependency graph
-    const dependencyGraph = buildDependencyGraph(
+    const dependencyGraph = buildDependencyGraphWithUtil(
       mappedTests,
       classified.pageObjects,
       classified.baseClasses,
