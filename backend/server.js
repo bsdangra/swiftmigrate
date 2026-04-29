@@ -29,8 +29,8 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// Serve static files for reports
-app.use("/report", express.static("./output/playwright-report"));
+// Serve generated Allure HTML (see executionService.js + projectBuilder reporter)
+app.use("/report", express.static("./output/allure-report"));
 
 const upload = multer({ dest: "uploads/" });
 
