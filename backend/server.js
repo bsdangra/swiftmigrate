@@ -13,13 +13,14 @@ import { preprocess } from "./preprocess.js";
 import { extractSteps } from "./intentUtils.js";
 import { detectFailureType } from "./failureDetector.js";
 import { detectFramework, classifyFiles, mapTestsToPOMs, filterRelevantFiles } from "./utils/fileAnalyzer.js";
-import { handleZip, detectFileType } from "./services/uploadService.js";
+import { handleZip } from "./services/uploadService.js";
 import { resolvePOMWithReport } from "./services/pomResolver.js";
-import { buildDependencyGraph, topoSortWithBuckets } from './services/dependencyResolver.js';
+import { buildDependencyGraph, topoSortWithBuckets, buildDependencyGraphWithUtil } from './services/dependencyResolver.js';
 import { processFiles } from './services/conversionOrchestrator.js';
 import { runtimeSelfHeal } from './services/executionService.js';
 import { buildProject } from './services/projectBuilder.js'
 import { validatePlaywrightCode } from "./services/validator.js";
+import { extractDependencies } from "./dependencyExtractor.js";
 
 dotenv.config();
 
@@ -178,6 +179,8 @@ app.post("/upload", upload.array("files"), async (req, res) => {
   try {
     const uploadedFiles = req.files;
     let allJavaFiles = [];
+    const classIndex = {};   // shared map of class and path
+    const methodContentMap = {};
 
     // 🔥 1. Extract ALL files first
     for (const file of uploadedFiles) {
@@ -189,19 +192,15 @@ app.post("/upload", upload.array("files"), async (req, res) => {
       }
 
       if (originalname.endsWith(".zip")) {
-        const extracted = await handleZip(filePath);
+        const extracted = await handleZip(filePath, classIndex, methodContentMap);
         // Filter out macOS metadata files from extracted files
         const filtered = extracted.filter(f => !f.fileName.startsWith("._"));
         allJavaFiles.push(...filtered);
       } 
       else if (originalname.endsWith(".java")) {
-        const content = await fsExtra.readFile(filePath, "utf-8");
-
-        allJavaFiles.push({
-          fileName: originalname,
-          content,
-          type: detectFileType(content),
-        });
+        const extract = extractDependencies(filePath, classIndex, methodContentMap)
+        extract.fileName = originalname;
+        allJavaFiles.push(extract);
       }
     }
 
@@ -221,10 +220,11 @@ app.post("/upload", upload.array("files"), async (req, res) => {
     );
 
     // 🔥 5. Build dependency graph
-    const dependencyGraph = buildDependencyGraph(
+    const dependencyGraph = buildDependencyGraphWithUtil(
       mappedTests,
       classified.pageObjects,
-      classified.baseClasses
+      classified.baseClasses,
+      classified.utils
     );
 
     // 🔥 6. Return structured response
@@ -235,10 +235,12 @@ app.post("/upload", upload.array("files"), async (req, res) => {
         tests: classified.testFiles.length,
         pages: classified.pageObjects.length,
         base: classified.baseClasses.length,
+        utils: classified.utils.length,
       },
       classified,
       mappedTests,
-      dependencyGraph   // 👈 IMPORTANT
+      dependencyGraph,   // 👈 IMPORTANT
+      methodContentMap
     });
 
   } catch (error) {
@@ -249,7 +251,7 @@ app.post("/upload", upload.array("files"), async (req, res) => {
 
 app.post("/process-project", async (req, res) => {
   try {
-    const { dependencyGraph } = req.body;
+    const { dependencyGraph, methodContentMap } = req.body;
 
     // 🔥 STEP 1 — ORDER FILES
     //const orderedFiles = topoSort(dependencyGraph);
@@ -270,7 +272,8 @@ app.post("/process-project", async (req, res) => {
     //🔥 STEP 2 + 3 — CONVERT FILES
     const convertedFiles = await processFiles(
       ordered,
-      dependencyGraph
+      dependencyGraph,
+      methodContentMap
     );
 
     // 🔥 Generate project

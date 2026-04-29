@@ -11,28 +11,21 @@ export const convertWithAI = async (
   errorContext = "",
   preprocessResult = null,
   previousPlaywrightCode = "",
-  steps = [],
-  framework = "unknown",
-  pageObjectContext
+  steps = []
 ) => {
   const model = genAI.getGenerativeModel({
     model: "gemini-3.1-pro-preview",
   });
 
   const normalizedDependencyCode = normalizeCodeInput(dependencyCode);
-  const normalizedPageObjectContext = normalizeCodeInput(
-    pageObjectContext ?? normalizedDependencyCode
-  );
-
+  
   const prompt = buildPrompt({
     seleniumCode,
     dependencyCode: normalizedDependencyCode,
-    pageObjectContext: normalizedPageObjectContext,
     errorContext,
     preprocessResult,
     previousPlaywrightCode,
-    steps,
-    framework
+    steps
   });
 
   const result = await model.generateContent(prompt);
@@ -64,21 +57,13 @@ function buildPrompt({
   errorContext,
   preprocessResult,
   previousPlaywrightCode,
-  steps,
-  framework = "unknown",
-  pageObjectContext
+  steps
 }) {
   const resolvedDependencyCode = normalizeCodeInput(dependencyCode);
-  const resolvedPageObjectContext = normalizeCodeInput(
-    pageObjectContext ?? resolvedDependencyCode
-  );
-
+ 
   return `
 TASK:
 Convert Selenium Java test into Playwright TypeScript.
-
-FRAMEWORK:
-${framework}
 
 ================================
 TEST SOURCE (SOURCE OF TRUTH)
@@ -88,7 +73,7 @@ ${seleniumCode}
 ================================
 RELEVANT PAGE OBJECT CONTEXT
 ================================
-${resolvedPageObjectContext || "No relevant page object context provided"}
+${resolvedDependencyCode || "No relevant page object context provided"}
 
 ================================
 TEST STEPS
