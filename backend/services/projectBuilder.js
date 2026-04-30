@@ -58,12 +58,15 @@ export async function buildProject(convertedFiles) {
     version: "1.0.0",
     private: true,
     scripts: {
-      test: "playwright test"
+      test: "playwright test",
+      "allure:report": "allure generate ./allure-results --clean -o ./allure-report",
     },
     devDependencies: {
-      "@playwright/test": "^1.45.0",
-      "typescript": "^5.0.0"
-    }
+      "@playwright/test": "^1.59.0",
+      "allure-commandline": "^2.38.0",
+      "allure-playwright": "^3.7.1",
+      typescript: "^5.0.0",
+    },
   };
 
   await fs.writeJson(
@@ -81,6 +84,10 @@ export default defineConfig({
   use: {
     headless: true,
   },
+  reporter: [
+    ['list'],
+    ['allure-playwright', { outputFolder: 'allure-results' }],
+  ],
 });
 `;
 

@@ -7,8 +7,33 @@ import fs from "fs-extra";
 
 const execAsync = util.promisify(exec);
 
+/** Runs a command and always resolves with exitCode (Playwright nonzero = test failures). */
+function execWithExit(command, options = {}) {
+  return new Promise((resolve) => {
+    exec(command, options, (error, stdout, stderr) => {
+      const code = error?.code;
+      const exitCode = typeof code === "number" ? code : error ? 1 : 0;
+      resolve({
+        exitCode,
+        stdout: String(stdout ?? ""),
+        stderr: String(stderr ?? ""),
+      });
+    });
+  });
+}
 
-// 🏃 Run Playwright project
+async function generateAllureReport(projectPath) {
+  try {
+    await execAsync("npx allure generate ./allure-results --clean -o ./allure-report", {
+      cwd: projectPath,
+      maxBuffer: 1024 * 1024 * 10,
+    });
+  } catch (e) {
+    console.warn("⚠️ Allure HTML report could not be generated:", e.stderr || e.message);
+  }
+}
+
+// 🏃 Run Playwright project (results → Allure instead of HTML reporter)
 export async function runPlaywrightProject(projectPath) {
   try {
     console.log("🚀 Installing dependencies...");
@@ -17,22 +42,32 @@ export async function runPlaywrightProject(projectPath) {
 
     await execAsync("npx playwright install", { cwd: projectPath });
 
+    const resultsDir = path.join(projectPath, "allure-results");
+    await fs.remove(resultsDir).catch(() => {});
+
     console.log("▶️ Running tests...");
 
-    const { stdout } = await execAsync("npx playwright test --reporter=html", {
+    const { exitCode, stdout, stderr } = await execWithExit("npx playwright test", {
       cwd: projectPath,
-      maxBuffer: 1024 * 1024 * 10
+      maxBuffer: 1024 * 1024 * 10,
     });
 
-    return {
-      success: true,
-      logs: stdout,
-    };
+    await generateAllureReport(projectPath);
 
+    const logs = [stdout, stderr].filter(Boolean).join("\n");
+
+    if (exitCode === 0) {
+      return { success: true, logs };
+    }
+
+    return {
+      success: false,
+      error: logs || stderr || `Playwright exited with code ${exitCode}`,
+    };
   } catch (error) {
     return {
       success: false,
-      error: error.stderr || error.stdout || error.message
+      error: error.stderr || error.stdout || error.message,
     };
   }
 }
