@@ -1,5 +1,9 @@
 // utils/fileAnalyzer.js
 
+import { extractUsedClassesV2 } from "./fileClassifierV2.js";
+
+
+
 export function detectFramework(files) {
   let isTestNG = false;
   let isJUnit4 = false;
@@ -168,7 +172,7 @@ export function extractUsedClasses(testContent) {
 
 export function mapTestsToPOMs(testFiles, pageObjects) {
   return testFiles.map(test => {
-    const usedClasses = extractUsedClasses(test.content);
+    const usedClasses = extractUsedClassesV2(test.content);
 
     const normalize = (name) => name.toLowerCase();
 

@@ -1,19 +1,5 @@
 // services/dependencyResolver.js
 
-// 🔍 Extract class usages like: new LoginPage(), LoginPage.login()
-export function extractUsedClasses(code = "") {
-  const regex = /\bnew\s+(\w+)|\b(\w+)\s*\./g;
-  const classes = new Set();
-
-  let match;
-  while ((match = regex.exec(code)) !== null) {
-    if (match[1]) classes.add(match[1]);
-    if (match[2]) classes.add(match[2]);
-  }
-
-  return Array.from(classes);
-}
-
 
 // 🔧 Normalize file name → class name
 function getClassName(fileName = "") {

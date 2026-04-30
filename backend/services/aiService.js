@@ -5,6 +5,14 @@ dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+export const callLLM = async(prompt = '') => {
+  const model = genAI.getGenerativeModel({
+    model: "gemini-3.1-pro-preview",
+  });
+  const result = await model.generateContent(prompt);
+  return result;
+}
+
 export const convertWithAI = async (
   seleniumCode,
   dependencyCode = "",
