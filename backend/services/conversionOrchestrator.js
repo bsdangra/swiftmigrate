@@ -1,7 +1,9 @@
 import { buildContext } from "./dependencyResolver.js";
 import { convertWithAI } from "./aiService.js";
 import { validatePlaywrightCode } from "./validator.js";
+import { emitProgress } from "./progressEmitter.js";
 import { preprocess } from "../preprocess.js";
+import { SocketMessageCategory } from "../socket.js";
 
 export async function processFiles(orderedFiles, dependencyGraph, methodContentMap) {
   const memory = {};
@@ -12,6 +14,7 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
     const file = node.file;
 
     console.log(`\n🔄 Converting: ${fileName}`);
+    emitProgress('conversion', `Converting: ${fileName}`, SocketMessageCategory.INFO, { file: fileName });
 
     const context = buildContext(fileName, dependencyGraph, memory, methodContentMap);
 
@@ -26,7 +29,7 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
     while (attempt < maxAttempts) {
       attempt++;
 
-      console.log(`Attempt ${attempt} for ${fileName}`);
+      emitProgress('conversion', `Attempt ${attempt} for ${fileName}`, SocketMessageCategory.INFO, { file: fileName, attempt });
 
       // 🔥 Convert
       playwrightCode = await convertWithAI(
@@ -40,11 +43,11 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
       const validation = validatePlaywrightCode(playwrightCode, file.type);
 
       if (validation.valid) {
-        console.log(`✅ Valid code for ${fileName}`);
+        emitProgress('conversion', `Valid code for ${fileName}`,SocketMessageCategory.SUCCESS, { file: fileName });
         break;
       }
 
-      console.log(`❌ Validation failed: ${validation.error}`);
+      emitProgress('conversion', `Validation failed: ${validation.error}`, SocketMessageCategory.ERROR, { file: fileName, attempt });
 
       // 🔥 Prepare error for next retry
       lastError = `

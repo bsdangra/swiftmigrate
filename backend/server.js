@@ -8,7 +8,8 @@ import multer from "multer";
 import fsExtra from "fs-extra";
 import AdmZip from "adm-zip";
 
-import { convertWithAI, explainChanges, verifyIntent } from "./services/aiService.js";
+import { initSocket, SocketMessageCategory } from "./socket.js";
+import { explainChanges, verifyIntent } from "./services/aiService.js";
 import { preprocess } from "./preprocess.js";
 import { extractSteps } from "./intentUtils.js";
 import { detectFailureType } from "./failureDetector.js";
@@ -21,6 +22,8 @@ import { runtimeSelfHeal } from './services/executionService.js';
 import { buildProject } from './services/projectBuilder.js'
 import { validatePlaywrightCode } from "./services/validator.js";
 import { extractDependencies } from "./dependencyExtractor.js";
+import { emitProgress } from "./services/progressEmitter.js";
+import { classifyFilesV2 } from "./utils/fileClassifierV2.js";
 
 dotenv.config();
 
@@ -31,6 +34,9 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Serve generated Allure HTML (see executionService.js + projectBuilder reporter)
 app.use("/report", express.static("./output/allure-report"));
+
+// initialize socket + server
+const { server } = initSocket(app);
 
 const upload = multer({ dest: "uploads/" });
 
@@ -44,143 +50,14 @@ if (!fs.existsSync(ZIP_OUTPUT_DIR)) {
 }
 
 
-// 🏃 Run Playwright helper
-async function runPlaywright(filePath) {
-  return new Promise((resolve) => {
-    exec(
-      `npx playwright test ${filePath} --timeout=10000`,
-      (error, stdout, stderr) => {
-        if (error) {
-          return resolve({
-            success: false,
-            error: stderr || stdout,
-          });
-        }
-
-        resolve({
-          success: true,
-          output: stdout,
-        });
-      }
-    );
-  });
-}
-
-// 🔁 Self-Healing Engine (CORE)
-async function selfHeal(seleniumCode, pageObjects = []) {
-  let playwrightCode = "";
-  let lastError = "";
-  let attempts = 0;
-  const maxAttempts = 3;
-
-  const seenErrors = new Set(); // 🔥 NEW
-
-  const preprocessResult = preprocess(seleniumCode);
-  const steps = extractSteps(seleniumCode);
-
-  while (attempts < maxAttempts) {
-    attempts++;
-
-    console.log(`\n🔁 Attempt ${attempts}`);
-
-    // 🔥 1. Avoid useless retry
-    if (seenErrors.has(lastError)) {
-      console.log("⚠️ Same error repeated. Stopping early.");
-      break;
-    }
-    if (lastError) seenErrors.add(lastError);
-
-    // 🔥 2. Convert / Fix using AI
-    playwrightCode = await convertWithAI(
-      seleniumCode,
-      pageObjects,
-      lastError,
-      preprocessResult,
-      playwrightCode,
-      steps
-    );
-
-    // 🔥 3. Fast validation BEFORE running Playwright
-    if (!validatePlaywrightCode(playwrightCode)) {
-      console.log("❌ Invalid Playwright code generated. Retrying...");
-      lastError = "Generated code is invalid or incomplete.";
-      continue;
-    }
-
-    // 4. Save file
-    fs.writeFileSync(FILE_PATH, playwrightCode);
-
-    // 5. Execute test
-    const result = await runPlaywright(FILE_PATH);
-
-    if (result.success) {
-      // 🔥 6. Verify intent ONLY on final success
-      const verification = await verifyIntent(seleniumCode, playwrightCode);
-
-      if (!verification.toLowerCase().includes("yes")) {
-        console.log("⚠️ Intent lost, retrying...");
-        lastError = `Intent mismatch: ${verification}`;
-        continue;
-      }
-
-      const explanation = await explainChanges(seleniumCode, playwrightCode);
-
-      return {
-        success: true,
-        playwrightCode,
-        attempts,
-        healed: attempts > 1,
-        logs: result.output,
-        explanation
-      };
-    }
-
-    // 🔥 7. Smarter failure handling
-    const failure = detectFailureType(result.error);
-
-    lastError = `
-Failure Type: ${failure.type}
-Reason: ${failure.message}
-
-Error:
-${result.error}
-
-Fix Strategy:
-${failure.fix}
-`;
-  }
-
-  return {
-    success: false,
-    playwrightCode,
-    attempts,
-    healed: false,
-    error: lastError,
-  };
-}
-
-//not being use currently
-// 🔥 MAIN FEATURE: Convert + Run + Self-Heal
-app.post("/convert-run", async (req, res) => {
-  try {
-    const { test, mappedPOMs } = req.body;
-
-    // Send to AI
-    const result = await selfHeal(test, mappedPOMs);
-
-    res.json(result);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Convert + Run failed");
-  }
-});
-
 app.post("/upload", upload.array("files"), async (req, res) => {
   try {
     const uploadedFiles = req.files;
     let allJavaFiles = [];
     const classIndex = {};   // shared map of class and path
     const methodContentMap = {};
+
+    emitProgress('upload', 'Files received', SocketMessageCategory.INFO);
 
     // 🔥 1. Extract ALL files first
     for (const file of uploadedFiles) {
@@ -203,6 +80,7 @@ app.post("/upload", upload.array("files"), async (req, res) => {
         allJavaFiles.push(extract);
       }
     }
+    emitProgress('upload', 'Files extracted and categorized', SocketMessageCategory.INFO);
 
     // 🔥 2. FILTER (after extraction)
     //const filteredFiles = filterRelevantFiles(allJavaFiles);
@@ -226,6 +104,8 @@ app.post("/upload", upload.array("files"), async (req, res) => {
       classified.baseClasses,
       classified.utils
     );
+
+    emitProgress('classification', 'Dependency graph built', SocketMessageCategory.INFO);
 
     // 🔥 6. Return structured response
     res.json({
@@ -253,6 +133,8 @@ app.post("/process-project", async (req, res) => {
   try {
     const { dependencyGraph, methodContentMap } = req.body;
 
+    emitProgress('classification', 'Analyzing dependencies', SocketMessageCategory.INFO);
+
     // 🔥 STEP 1 — ORDER FILES
     //const orderedFiles = topoSort(dependencyGraph);
     const { ordered, unordered } = topoSortWithBuckets(dependencyGraph);
@@ -269,6 +151,8 @@ app.post("/process-project", async (req, res) => {
       });
     }
 
+    emitProgress('conversion', 'Starting file conversion', SocketMessageCategory.INFO);
+
     //🔥 STEP 2 + 3 — CONVERT FILES
     const convertedFiles = await processFiles(
       ordered,
@@ -276,11 +160,17 @@ app.post("/process-project", async (req, res) => {
       methodContentMap
     );
 
+    emitProgress('execution', 'Setting up execution environment', SocketMessageCategory.INFO);
+
     // 🔥 Generate project
     const projectPath = await buildProject(convertedFiles);
+    
+    emitProgress('execution', 'Running tests', SocketMessageCategory.INFO);
 
     // 🔥 Runtime execution + healing
     const executionResult = await runtimeSelfHeal(projectPath);
+
+    emitProgress('done', 'Process complete');
 
     // 🔥 Create zip of project
     const zipPath = await zipProject(projectPath);
@@ -351,6 +241,6 @@ app.get("/download/:zipName", (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
