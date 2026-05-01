@@ -14,6 +14,7 @@ export const callLLM = async(prompt = '') => {
 }
 
 export const convertWithAI = async (
+  fileName,
   seleniumCode,
   dependencyCode = "",
   errorContext = "",
