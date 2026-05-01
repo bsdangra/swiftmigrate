@@ -1,5 +1,9 @@
 // utils/fileAnalyzer.js
 
+import { extractUsedClassesV2 } from "./fileClassifierV2.js";
+
+
+
 export function detectFramework(files) {
   let isTestNG = false;
   let isJUnit4 = false;
@@ -128,20 +132,20 @@ export function detectFileType(fileName, content){
       return "test";
     }
 
-    // ✅ 2. PAGE OBJECT
-    if (
-      fileName.endsWith("page.java") ||   // 🔥 stricter
-      isPageByContent
-    ) {
-      return "pageObject";
-    }
-
-    // ✅ 3. BASE CLASS
+  // ✅ 2. BASE CLASS
     if (
       fileName.includes("base") ||
       isBaseByContent
     ) {
       return "base";
+    }
+
+    // ✅ 3. PAGE OBJECT
+    if (
+      fileName.endsWith("page.java") ||   // 🔥 stricter
+      isPageByContent
+    ) {
+      return "pageObject";
     }
 
     // ✅ 4. UTILS / SUPPORT FILES
@@ -168,7 +172,7 @@ export function extractUsedClasses(testContent) {
 
 export function mapTestsToPOMs(testFiles, pageObjects) {
   return testFiles.map(test => {
-    const usedClasses = extractUsedClasses(test.content);
+    const usedClasses = extractUsedClassesV2(test.content);
 
     const normalize = (name) => name.toLowerCase();
 
