@@ -156,7 +156,7 @@ app.post("/process-project", async (req, res) => {
     emitProgress('conversion', 'Starting file conversion', SocketMessageCategory.INFO);
 
     //🔥 STEP 2 + 3 — CONVERT FILES
-    const convertedFiles = await processFiles(
+    const { memory: convertedFiles, totalTokenUsed } = await processFiles(
       ordered,
       dependencyGraph,
       methodContentMap
@@ -170,16 +170,18 @@ app.post("/process-project", async (req, res) => {
     emitProgress('execution', 'Running tests', SocketMessageCategory.INFO);
 
     // 🔥 Runtime execution + healing
-    const executionResult = await runtimeSelfHeal(projectPath);
+    const executionResult = await runtimeSelfHeal(projectPath, totalTokenUsed);
 
     emitProgress('done', 'Process complete');
 
     // 🔥 Create zip of project
     const zipPath = await zipProject(projectPath);
     const endTime = Date.now();
-    const seconds = ((endTime - startTime) / 1000).toFixed(2);
+    const totalExeSeconds = ((endTime - startTime) / 1000).toFixed(2);
     console.log(`Total time: ${seconds} seconds`);
 
+    emitProgress('Total execution time in seconds', `${totalExeSeconds}`, SocketMessageCategory.INFO);
+    
     res.json({
       success: executionResult.success,
       attempts: executionResult.attempts,
