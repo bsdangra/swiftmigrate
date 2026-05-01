@@ -1,5 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
+import { emitProgress } from "./progressEmitter.js";
+import { SocketMessageCategory } from "../socket.js";
 
 dotenv.config();
 
@@ -48,7 +50,14 @@ export const convertWithAI = async (
   cached token ${result.usage?.prompt_tokens_details?.cached_tokens|| result.usage?.input_tokens_details?.cached_tokens} total cost ${result.usage?.cost}`);
 
   
-  return cleanCode(text);
+  const inputToken = result.usage?.prompt_tokens || result.response?.usageMetadata?.promptTokenCount || result.usage?.input_tokens;
+  const outputToken = result.usage?.completion_tokens || result.response?.usageMetadata?.candidatesTokenCount || result.usage?.output_tokens;
+  let tokenUsed = inputToken + outputToken;
+
+  emitProgress('token utilization', `${tokenUsed}`, SocketMessageCategory.INFO);
+  
+  return {playwrightCode: cleanCode(text),
+     tokenUsed}; 
 };
 
 function normalizeCodeInput(input) {
