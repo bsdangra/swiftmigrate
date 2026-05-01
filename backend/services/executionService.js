@@ -3,6 +3,8 @@ import util from "util";
 import path from "path";
 import { detectFailureType } from "../failureDetector.js";
 import { convertWithAI } from "./aiService.js";
+import { emitProgress } from "./progressEmitter.js";
+import { SocketMessageCategory } from "../socket.js";
 import fs from "fs-extra";
 
 const execAsync = util.promisify(exec);
@@ -72,7 +74,7 @@ export async function runPlaywrightProject(projectPath) {
   }
 }
 
-export async function runtimeSelfHeal(projectPath, maxAttempts = 2) {
+export async function runtimeSelfHeal(projectPath, totalTokenUsed, maxAttempts = 2) {
   let attempt = 0;
   let lastError = "";
 
@@ -120,7 +122,7 @@ ${failure.fix}
   };
 }
 
-async function fixTestFiles(projectPath, errorContext) {
+async function fixTestFiles(projectPath, errorContext, totalTokenUsed = 0) {
   const testsDir = path.join(projectPath, "tests");
 
   const files = await fs.readdir(testsDir);
@@ -132,13 +134,17 @@ async function fixTestFiles(projectPath, errorContext) {
 
     console.log(`🛠 Fixing ${file}`);
 
-    const fixedCode = await convertWithAI(
+    const generationOutput = await convertWithAI(
       content,
       "",               // no dependency code needed here
       errorContext,     // 🔥 runtime error
       null,
       content
     );
+    const fixedCode = generationOutput.playwrightCode;
+    totalTokenUsed += generationOutput.tokenUsed || 0;
+
+    emitProgress('token utilization', `${totalTokenUsed}`, SocketMessageCategory.INFO);
 
     await fs.writeFile(filePath, fixedCode, "utf-8");
   }

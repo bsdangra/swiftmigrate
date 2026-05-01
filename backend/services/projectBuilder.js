@@ -13,14 +13,12 @@ export async function buildProject(convertedFiles) {
   const testsDir = path.join(outputDir, "tests");
   const utilsDir = path.join(outputDir, "utils");
   const baseDir = path.join(outputDir, "base");
-  const miscDir = path.join(outputDir, "misc");
 
 
   await fs.ensureDir(pagesDir);
   await fs.ensureDir(testsDir);
   await fs.ensureDir(utilsDir);
   await fs.ensureDir(baseDir);
-  await fs.ensureDir(miscDir);
 
 
   // 3. Write converted files
@@ -36,18 +34,28 @@ export async function buildProject(convertedFiles) {
     .replace(/(['"`])\.\/utils\//g, '$1../utils/')
     .replace(/(['"`])\.\/base\//g, '$1../base/');
      //content.replace(/(['"`])\.\/pages\//g, '$1../pages/');
-    } else if (data.type === "pageObject") {
+    } 
+    else if (data.type === "pageObject") {
   filePath = path.join(pagesDir, `${baseName}.ts`);
-
-} else if (data.type === "utility") {
+   data.content = data.content
+   .replace(/(['"`])\.\/pages\//g, '$1./')
+   .replace(/(['"`])\.\/utils\//g, '$1../utils/')
+    .replace(/(['"`])\.\/base\//g, '$1../base/');
+} /*else if (data.type === "utility") {
   filePath = path.join(utilsDir, `${baseName}.ts`);
-
-} else if (data.type === "base") {
+}*/ else if (data.type === "base") {
   filePath = path.join(baseDir, `${baseName}.ts`);
-
+  data.content = data.content
+   .replace(/(['"`])\.\/pages\//g, '$1../pages/')
+   .replace(/(['"`])\.\/utils\//g, '$1../utils/')
+    .replace(/(['"`])\.\/base\//g, '$1./');
 } else {
   // fallback (avoid silently putting wrong files in pages)
-  filePath = path.join(miscDir, `${baseName}.ts`);
+  filePath = path.join(utilsDir, `${baseName}.ts`);
+  data.content = data.content
+   .replace(/(['"`])\.\/pages\//g, '$1../pages/')
+   .replace(/(['"`])\.\/utils\//g, '$1./')
+    .replace(/(['"`])\.\/base\//g, '$1../base/');
 }
     await fs.writeFile(filePath, data.content, "utf-8");
   }

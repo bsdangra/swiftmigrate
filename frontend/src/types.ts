@@ -37,4 +37,5 @@ export interface ClassificationSummary {
   },
   dependencyGraph: any;
   methodContentMap: any;
+  startTime: number;
 };

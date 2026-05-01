@@ -1,5 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
+import { emitProgress } from "./progressEmitter.js";
+import { SocketMessageCategory } from "../socket.js";
 
 dotenv.config();
 
@@ -14,6 +16,7 @@ export const callLLM = async(prompt = '') => {
 }
 
 export const convertWithAI = async (
+  fileName,
   seleniumCode,
   dependencyCode = "",
   errorContext = "",
@@ -39,9 +42,22 @@ export const convertWithAI = async (
   const result = await model.generateContent(prompt);
 
   let text =
-    result.response?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    result.choices?.[0]?.message?.content || result.response?.candidates?.[0]?.content?.parts?.[0]?.text || 
+  result.output_text ||"";
 
-  return cleanCode(text);
+  console.log(`file ${fileName} prompt details i/p token ${result.usage?.prompt_tokens || result.response?.usageMetadata?.promptTokenCount || result.usage?.input_tokens}
+   o/p token ${result.usage?.completion_tokens || result.response?.usageMetadata?.candidatesTokenCount || result.usage?.output_tokens} 
+  cached token ${result.usage?.prompt_tokens_details?.cached_tokens|| result.usage?.input_tokens_details?.cached_tokens} total cost ${result.usage?.cost}`);
+
+  
+  const inputToken = result.usage?.prompt_tokens || result.response?.usageMetadata?.promptTokenCount || result.usage?.input_tokens;
+  const outputToken = result.usage?.completion_tokens || result.response?.usageMetadata?.candidatesTokenCount || result.usage?.output_tokens;
+  let tokenUsed = inputToken + outputToken;
+
+  emitProgress('token utilization', `${tokenUsed}`, SocketMessageCategory.INFO);
+  
+  return {playwrightCode: cleanCode(text),
+     tokenUsed}; 
 };
 
 function normalizeCodeInput(input) {
@@ -84,11 +100,6 @@ RELEVANT PAGE OBJECT CONTEXT
 ${resolvedDependencyCode || "No relevant page object context provided"}
 
 ================================
-TEST STEPS
-================================
-${steps?.length ? steps.join("\n") : "N/A"}
-
-================================
 KNOWN ISSUES
 ================================
 ${preprocessResult?.issues?.map(i => `- ${i.message}`).join("\n") || "None"}
@@ -129,15 +140,13 @@ PROJECT STRUCTURE REQUIREMENTS AND ORGANIZATION
 - Use relative imports: e.g., import { LoginPage } from '../pages/LoginPage'; import { Helper } from '../utils/Helper'.
 - Include a playwright.config.ts at root with basic configuration (browser settings, test directory).
 - Generate package.json with @playwright/test, TypeScript, and other necessary dependencies.
-- Use proper file naming: PascalCase for classes (LoginPage.ts), camelCase for utilities (helper.ts).
 - Avoid committing generated artifacts: Do not include node_modules/, playwright-report/, test-results/, or dist/ in the repository. These should be created at runtime.
 - Use flat folder structures where possible; avoid deep nesting unless necessary for organization (e.g., group related page objects in subfolders if there are many).
 - Ensure all source files are in TypeScript (.ts) for consistency, with tests/ containing .spec.ts files.
 ========================
 FILE NAMING CONVENTIONS
 ========================
-- Use PascalCase for class names (e.g., LoginPage.ts, TestBase.ts).
-- Use camelCase for method and variable names.
+- Use proper file naming: PascalCase for classes (LoginPage.ts), camelCase for utilities (helper.ts) and for method and variable names.
 - Name test files descriptively with .spec.ts suffix (e.g., LoginTest.spec.ts, EmployeeListFunctionality.spec.ts).
 - Name page object files after the page or component (e.g., DashboardPage.ts, AdminPage.ts).
 - Name utility files clearly (e.g., Config.ts, ExcelReaderUtil.ts, Log.ts).
@@ -184,6 +193,8 @@ MIGRATION RULES AND FIDELITY TO ORIGINAL
 - Maintain test data and configurations: Migrate any hardcoded values or external data sources (e.g., Excel readers) intact.
 - Preserve comments and naming: Retain original comments, variable names, and method signatures where feasible.
 - Handle unsupported features: If a Selenium feature has no direct Playwright equivalent, note it in comments and provide a workaround (e.g., for complex waits, use page.waitForFunction()).
+- If additional coverage is needed, add one or two extra Playwright test cases that extend the same user journey without changing the original Selenium test flow.
+- Keep the original test intact; any added cases must be additive and focused on complementary validations or missing assertions.
 ================================
 ADDITIONAL QUALITY CHECKS
 ================================
@@ -197,8 +208,6 @@ OUTPUT
 Return ONLY valid Playwright TypeScript code. No markdown fences, no extra comments, no explanation.
 `;
 }
-
-
 // 🔥 MAIN POM CONTEXT BUILDER
 function getRelevantPOMContext(testCode, pageObjects = []) {
   if (!pageObjects.length) return "No page objects provided";
