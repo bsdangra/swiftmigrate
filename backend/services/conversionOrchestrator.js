@@ -12,6 +12,7 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
   for (const fileName of orderedFiles) {
     const node = dependencyGraph[fileName];
     const file = node.file;
+    let totalTokenUsed = 0;
 
     console.log(`\n🔄 Converting: ${fileName}`);
     emitProgress('conversion', `Converting: ${fileName}`, SocketMessageCategory.INFO, { file: fileName });
@@ -24,6 +25,7 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
 
     let attempt = 0;
     let playwrightCode = "";
+    let generationOutput = "";
     let lastError = "";
 
     while (attempt < maxAttempts) {
@@ -39,6 +41,9 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
         lastError,
         preprocessResult
       );
+
+      playwrightCode = generationOutput.playwrightCode;
+      totalTokenUsed += generationOutput.tokenUsed || 0;
 
       // 🔥 Validate
       const validation = validatePlaywrightCode(playwrightCode, file.type);
@@ -66,5 +71,5 @@ Fix the code accordingly.
     };
   }
 
-  return memory;
+  return {memory, totalTokenUsed};
 }
