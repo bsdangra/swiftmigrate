@@ -117,7 +117,50 @@ STRICT CONVERSION RULES
 - Prefer page.locator() and expect() for interactions and assertions.
 - Use async/await for all Playwright operations.
 - Do NOT return markdown, comments, or explanation text.
+- Ensure generated code fits a standard Playwright project structure with folders: tests/, pages/, utils/, base/.
+- Use relative imports for page objects and utilities: e.g., import { LoginPage } from '../pages/LoginPage'.
+- Generate TypeScript files with .ts extension.
+- Include proper file organization and naming conventions.
 
+===============================================
+PROJECT STRUCTURE REQUIREMENTS AND ORGANIZATION
+===============================================
+- Organize files into the following folders: tests/ for test spec files, pages/ for Page Object Model classes, utils/ for utility functions (e.g., helpers, readers), base/ for base classes (e.g., test base, helpers), and config/ for configuration files.
+- Use relative imports: e.g., import { LoginPage } from '../pages/LoginPage'; import { Helper } from '../utils/Helper'.
+- Include a playwright.config.ts at root with basic configuration (browser settings, test directory).
+- Generate package.json with @playwright/test, TypeScript, and other necessary dependencies.
+- Use proper file naming: PascalCase for classes (LoginPage.ts), camelCase for utilities (helper.ts).
+- Avoid committing generated artifacts: Do not include node_modules/, playwright-report/, test-results/, or dist/ in the repository. These should be created at runtime.
+- Use flat folder structures where possible; avoid deep nesting unless necessary for organization (e.g., group related page objects in subfolders if there are many).
+- Ensure all source files are in TypeScript (.ts) for consistency, with tests/ containing .spec.ts files.
+========================
+FILE NAMING CONVENTIONS
+========================
+- Use PascalCase for class names (e.g., LoginPage.ts, TestBase.ts).
+- Use camelCase for method and variable names.
+- Name test files descriptively with .spec.ts suffix (e.g., LoginTest.spec.ts, EmployeeListFunctionality.spec.ts).
+- Name page object files after the page or component (e.g., DashboardPage.ts, AdminPage.ts).
+- Name utility files clearly (e.g., Config.ts, ExcelReaderUtil.ts, Log.ts).
+================================
+CONFIGURATION FILES
+================================
+- Include a playwright.config.ts with: testDir: './tests', use: { headless: true }, and any necessary browser configurations (e.g., projects: [{ name: 'chromium', use: { ... } }]).
+- Include a tsconfig.json with: "target": "ESNext", "module": "commonjs", "strict": true, "esModuleInterop": true, "moduleResolution": "node", "resolveJsonModule": true, "outDir": "dist", and "include": ["tests", "pages", "utils", "base"].
+- Ensure package.json has: "scripts": { "test": "playwright test", "install-browsers": "playwright install" }, and list @playwright/test and typescript as devDependencies with pinned versions (e.g., "@playwright/test": "^1.45.0").
+====================================
+ESSENTIAL ARTIFACTS AND INSTRUCTIONAL FILES
+====================================
+- Include a .gitignore file with: node_modules/, playwright-report/, test-results/, dist/, .env, *.log, and OS-specific ignores (e.g., .DS_Store for macOS).
+- Include a README.md with sections: Project Description, Prerequisites (Node.js, npm), Installation (npm install && npm run install-browsers), Running Tests (npm test), and any setup notes (e.g., environment variables).
+- Optionally include a CONTRIBUTING.md or MIGRATION_NOTES.md explaining the conversion process and rules followed.
+- Add a package-lock.json (generated via npm install) to lock dependencies.
+====================================
+EXECUTABILITY AND SETUP INSTRUCTIONS
+====================================
+- Ensure the project is directly executable: Include clear instructions in README.md for end users to run npm install, npm run install-browsers, and npm test without additional setup.
+- Assume Node.js and npm are available; do not require global installations of Playwright.
+- Include a simple script or note to handle browser installation if needed.
+- Validate that tests can run in headless mode by default, with options for headed mode.
 ================================
 PLAYWRIGHT RULES
 ================================
@@ -128,7 +171,26 @@ PLAYWRIGHT RULES
 - Use page.locator() over page.$ or direct selector strings when possible
 - Use expect() for assertions
 - Keep the output valid TypeScript code
+- Convert Selenium waits to Playwright equivalents: Use await page.waitForSelector() or await page.waitForLoadState() instead of implicit/explicit waits.
+- Handle locators: Prefer CSS selectors or Playwright's getByRole(), getByText(), etc., over XPath where possible.
+- Use Page Object Model: Encapsulate page interactions in classes with methods like async login(username, password).
+- Include error handling: Use try-catch in tests and log failures appropriately.
+- Configure retries and reporting: In playwright.config.ts, add retries: 1 and reporter: [['html', { open: 'never' }]].
 
+========================================
+MIGRATION RULES AND FIDELITY TO ORIGINAL
+========================================
+- Keep the source test logic as close as possible to the original Selenium tests: Preserve test flow, assertions, and data usage.
+- Maintain test data and configurations: Migrate any hardcoded values or external data sources (e.g., Excel readers) intact.
+- Preserve comments and naming: Retain original comments, variable names, and method signatures where feasible.
+- Handle unsupported features: If a Selenium feature has no direct Playwright equivalent, note it in comments and provide a workaround (e.g., for complex waits, use page.waitForFunction()).
+================================
+ADDITIONAL QUALITY CHECKS
+================================
+- Ensure no syntax errors: All generated code must be valid TypeScript and runnable.
+- Add basic linting: Include ESLint config if possible, or at least ensure code follows standard formatting.
+- Test the output: After generation, verify the project installs and runs tests successfully.
+- Make it self-contained: Avoid external dependencies beyond what's in package.json.
 ================================
 OUTPUT
 ================================
