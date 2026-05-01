@@ -132,20 +132,20 @@ export function detectFileType(fileName, content){
       return "test";
     }
 
-    // ✅ 2. PAGE OBJECT
-    if (
-      fileName.endsWith("page.java") ||   // 🔥 stricter
-      isPageByContent
-    ) {
-      return "pageObject";
-    }
-
-    // ✅ 3. BASE CLASS
+  // ✅ 2. BASE CLASS
     if (
       fileName.includes("base") ||
       isBaseByContent
     ) {
       return "base";
+    }
+
+    // ✅ 3. PAGE OBJECT
+    if (
+      fileName.endsWith("page.java") ||   // 🔥 stricter
+      isPageByContent
+    ) {
+      return "pageObject";
     }
 
     // ✅ 4. UTILS / SUPPORT FILES
