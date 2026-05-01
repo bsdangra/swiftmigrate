@@ -11,7 +11,7 @@ export async function buildProject(convertedFiles) {
   // 2. Create folders
   const pagesDir = path.join(outputDir, "pages");
   const testsDir = path.join(outputDir, "tests");
-  const utilsDir = path.join(outputDir, "utility");
+  const utilsDir = path.join(outputDir, "utils");
   const baseDir = path.join(outputDir, "base");
 
 
@@ -31,7 +31,7 @@ export async function buildProject(convertedFiles) {
       filePath = path.join(testsDir, `${baseName}.spec.ts`);
      data.content = data.content
     .replace(/(['"`])\.\/pages\//g, '$1../pages/')
-    .replace(/(['"`])\.\/utility\//g, '$1../utility/')
+    .replace(/(['"`])\.\/utils\//g, '$1../utils/')
     .replace(/(['"`])\.\/base\//g, '$1../base/');
      //content.replace(/(['"`])\.\/pages\//g, '$1../pages/');
     } 
@@ -39,7 +39,7 @@ export async function buildProject(convertedFiles) {
   filePath = path.join(pagesDir, `${baseName}.ts`);
    data.content = data.content
    .replace(/(['"`])\.\/pages\//g, '$1./')
-   .replace(/(['"`])\.\/utility\//g, '$1../utility/')
+   .replace(/(['"`])\.\/utils\//g, '$1../utils/')
     .replace(/(['"`])\.\/base\//g, '$1../base/');
 } /*else if (data.type === "utility") {
   filePath = path.join(utilsDir, `${baseName}.ts`);
@@ -47,14 +47,14 @@ export async function buildProject(convertedFiles) {
   filePath = path.join(baseDir, `${baseName}.ts`);
   data.content = data.content
    .replace(/(['"`])\.\/pages\//g, '$1../pages/')
-   .replace(/(['"`])\.\/utility\//g, '$1../utility/')
+   .replace(/(['"`])\.\/utils\//g, '$1../utils/')
     .replace(/(['"`])\.\/base\//g, '$1./');
 } else {
   // fallback (avoid silently putting wrong files in pages)
   filePath = path.join(utilsDir, `${baseName}.ts`);
   data.content = data.content
    .replace(/(['"`])\.\/pages\//g, '$1../pages/')
-   .replace(/(['"`])\.\/utility\//g, '$1./')
+   .replace(/(['"`])\.\/utils\//g, '$1./')
     .replace(/(['"`])\.\/base\//g, '$1../base/');
 }
     await fs.writeFile(filePath, data.content, "utf-8");
