@@ -1,5 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
+import { emitProgress } from "./progressEmitter.js";
+import { SocketMessageCategory } from "../socket.js";
 
 dotenv.config();
 
@@ -14,6 +16,7 @@ export const callLLM = async(prompt = '') => {
 }
 
 export const convertWithAI = async (
+  fileName,
   seleniumCode,
   dependencyCode = "",
   errorContext = "",
@@ -39,9 +42,22 @@ export const convertWithAI = async (
   const result = await model.generateContent(prompt);
 
   let text =
-    result.response?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    result.choices?.[0]?.message?.content || result.response?.candidates?.[0]?.content?.parts?.[0]?.text || 
+  result.output_text ||"";
 
-  return cleanCode(text);
+  console.log(`file ${fileName} prompt details i/p token ${result.usage?.prompt_tokens || result.response?.usageMetadata?.promptTokenCount || result.usage?.input_tokens}
+   o/p token ${result.usage?.completion_tokens || result.response?.usageMetadata?.candidatesTokenCount || result.usage?.output_tokens} 
+  cached token ${result.usage?.prompt_tokens_details?.cached_tokens|| result.usage?.input_tokens_details?.cached_tokens} total cost ${result.usage?.cost}`);
+
+  
+  const inputToken = result.usage?.prompt_tokens || result.response?.usageMetadata?.promptTokenCount || result.usage?.input_tokens;
+  const outputToken = result.usage?.completion_tokens || result.response?.usageMetadata?.candidatesTokenCount || result.usage?.output_tokens;
+  let tokenUsed = inputToken + outputToken;
+
+  emitProgress('token utilization', `${tokenUsed}`, SocketMessageCategory.INFO);
+  
+  return {playwrightCode: cleanCode(text),
+     tokenUsed}; 
 };
 
 function normalizeCodeInput(input) {
@@ -84,11 +100,6 @@ RELEVANT PAGE OBJECT CONTEXT
 ${resolvedDependencyCode || "No relevant page object context provided"}
 
 ================================
-TEST STEPS
-================================
-${steps?.length ? steps.join("\n") : "N/A"}
-
-================================
 KNOWN ISSUES
 ================================
 ${preprocessResult?.issues?.map(i => `- ${i.message}`).join("\n") || "None"}
@@ -117,6 +128,7 @@ STRICT CONVERSION RULES
 - Prefer page.locator() and expect() for interactions and assertions.
 - Use async/await for all Playwright operations.
 - Do NOT return markdown, comments, or explanation text.
+- Project package structure have base, pages, tests and utility folders, filetype of each type will go under corresponding folder on final generation. Improve import statements taking this into consideration and updating only when required.
 
 ================================
 PLAYWRIGHT RULES

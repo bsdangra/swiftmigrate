@@ -88,12 +88,12 @@ export function buildDependencyGraphWithUtil(
   const classToFileMap = {};
   allFiles.forEach(f => {
     const className = f.fileName.replace(".java", "");
-    classToFileMap[className] = f.fileName;
+    classToFileMap[className] = f.fileName+ " filetype "+ f.type;
   });
 
   // 🔥 3. Create lookup set
   const fileNameSet = new Set(
-    allFiles.map(f => f.fileName.toLowerCase())
+    allFiles.map(f => f.fileName.toLowerCase()+ " filetype "+ f.type.toLowerCase())
   );
 
   // 🔥 4. Initialize graph
@@ -251,6 +251,8 @@ export function buildContext(fileName, graph, memory, methodContentMap) {
   if (!node) return {};
  
   let dependencies ="";
+  const addedMethods = new Set(); // ✅ track unique methods
+  
    node.file.methods?.forEach(method => {
    
     method.calls?.forEach(call => {
@@ -259,12 +261,16 @@ export function buildContext(fileName, graph, memory, methodContentMap) {
 
       const key = `${call.targetClass}.${call.targetMethod}`;
   
-      if (key in methodContentMap) {
+      if (key in methodContentMap && !addedMethods.has(key)) {
           dependencies += methodContentMap[key] + "\n";
+          addedMethods.add(key);
       }
     }
     });
   });
+
+  dependencies += node.dependsOn; // add dependsOn as dependencies, will be utilized for improved import
+  
   return {
     currentFile: fileName,
     type: node.type,

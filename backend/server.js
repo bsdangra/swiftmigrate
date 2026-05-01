@@ -52,6 +52,7 @@ if (!fs.existsSync(ZIP_OUTPUT_DIR)) {
 
 app.post("/upload", upload.array("files"), async (req, res) => {
   try {
+    const start = Date.now();
     const uploadedFiles = req.files;
     let allJavaFiles = [];
     const classIndex = {};   // shared map of class and path
@@ -120,7 +121,8 @@ app.post("/upload", upload.array("files"), async (req, res) => {
       classified,
       mappedTests,
       dependencyGraph,   // 👈 IMPORTANT
-      methodContentMap
+      methodContentMap,
+      startTime: start
     });
 
   } catch (error) {
@@ -131,7 +133,7 @@ app.post("/upload", upload.array("files"), async (req, res) => {
 
 app.post("/process-project", async (req, res) => {
   try {
-    const { dependencyGraph, methodContentMap } = req.body;
+    const { dependencyGraph, methodContentMap, startTime } = req.body;
 
     emitProgress('classification', 'Analyzing dependencies', SocketMessageCategory.INFO);
 
@@ -154,7 +156,7 @@ app.post("/process-project", async (req, res) => {
     emitProgress('conversion', 'Starting file conversion', SocketMessageCategory.INFO);
 
     //🔥 STEP 2 + 3 — CONVERT FILES
-    const convertedFiles = await processFiles(
+    const { memory: convertedFiles, totalTokenUsed } = await processFiles(
       ordered,
       dependencyGraph,
       methodContentMap
@@ -168,13 +170,18 @@ app.post("/process-project", async (req, res) => {
     emitProgress('execution', 'Running tests', SocketMessageCategory.INFO);
 
     // 🔥 Runtime execution + healing
-    const executionResult = await runtimeSelfHeal(projectPath);
+    const executionResult = await runtimeSelfHeal(projectPath, totalTokenUsed);
 
     emitProgress('done', 'Process complete');
 
     // 🔥 Create zip of project
     const zipPath = await zipProject(projectPath);
+    const endTime = Date.now();
+    const totalExeSeconds = ((endTime - startTime) / 1000).toFixed(2);
+    console.log(`Total time: ${seconds} seconds`);
 
+    emitProgress('Total execution time in seconds', `${totalExeSeconds}`, SocketMessageCategory.INFO);
+    
     res.json({
       success: executionResult.success,
       attempts: executionResult.attempts,

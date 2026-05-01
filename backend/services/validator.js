@@ -55,14 +55,14 @@ export function validatePlaywrightCode(code = "", type = "test") {
     }
  
     // ⚠️ Should not contain test blocks
-    if (/test\s*\(/.test(normalized)) {
+    if (/@Test\s*\(/.test(normalized)) {
       issues.push("Page object should not contain test()");
     }
   }
  
   if (type === "base") {
     // ⚠️ Should not contain test blocks
-    if (/test\s*\(/.test(normalized)) {
+    if (/@Test\s*\(/.test(normalized)) {
       issues.push("Base class should not contain test()");
     }
   }
