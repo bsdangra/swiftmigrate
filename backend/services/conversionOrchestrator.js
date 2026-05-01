@@ -33,6 +33,7 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
 
       // 🔥 Convert
       playwrightCode = await convertWithAI(
+        fileName,
         file.content,
         dependencyCode,
         lastError,
