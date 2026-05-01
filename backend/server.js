@@ -52,6 +52,7 @@ if (!fs.existsSync(ZIP_OUTPUT_DIR)) {
 
 app.post("/upload", upload.array("files"), async (req, res) => {
   try {
+    const start = Date.now();
     const uploadedFiles = req.files;
     let allJavaFiles = [];
     const classIndex = {};   // shared map of class and path
@@ -120,7 +121,8 @@ app.post("/upload", upload.array("files"), async (req, res) => {
       classified,
       mappedTests,
       dependencyGraph,   // 👈 IMPORTANT
-      methodContentMap
+      methodContentMap,
+      startTime: start
     });
 
   } catch (error) {
@@ -131,7 +133,7 @@ app.post("/upload", upload.array("files"), async (req, res) => {
 
 app.post("/process-project", async (req, res) => {
   try {
-    const { dependencyGraph, methodContentMap } = req.body;
+    const { dependencyGraph, methodContentMap, startTime } = req.body;
 
     emitProgress('classification', 'Analyzing dependencies', SocketMessageCategory.INFO);
 
@@ -174,6 +176,9 @@ app.post("/process-project", async (req, res) => {
 
     // 🔥 Create zip of project
     const zipPath = await zipProject(projectPath);
+    const endTime = Date.now();
+    const seconds = ((endTime - startTime) / 1000).toFixed(2);
+    console.log(`Total time: ${seconds} seconds`);
 
     res.json({
       success: executionResult.success,
