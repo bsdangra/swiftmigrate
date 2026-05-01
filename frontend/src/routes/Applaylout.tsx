@@ -28,7 +28,7 @@ export default function AppLayout() {
         const res = await processProject({
           dependencyGraph: classificationSummary.dependencyGraph || {},
           methodContentMap: classificationSummary.methodContentMap || {},
-          startTime: data.startTime || {}
+          startTime: classificationSummary.startTime || Date.now(),
         });
 
         if (res.success) {
