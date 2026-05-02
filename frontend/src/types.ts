@@ -8,15 +8,14 @@ export type FileItem = {
 };
 
 export type ProjectData = {
-  projectName: string;
-  totalFiles: number;
-  converted: number;
-
-  // ✅ add these
-  unsupported: number;
-  aiGenerated: number;
-
-  files: FileItem[];
+  attempts: number;
+  logs: string;
+  zipPath: string;
+  reportPath: string;
+  ordered: string[];
+  unordered: string[];
+  convertedCount: number;
+  files?: FileItem[];
 };
 
 export interface ClassificationSummary {
