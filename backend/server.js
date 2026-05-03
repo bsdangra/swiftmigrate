@@ -178,7 +178,7 @@ app.post("/process-project", async (req, res) => {
     const zipPath = await zipProject(projectPath);
     const endTime = Date.now();
     const totalExeSeconds = ((endTime - startTime) / 1000).toFixed(2);
-    console.log(`Total time: ${seconds} seconds`);
+    console.log(`Total time: ${totalExeSeconds} seconds`);
 
     emitProgress('Total execution time in seconds', `${totalExeSeconds}`, SocketMessageCategory.INFO);
     

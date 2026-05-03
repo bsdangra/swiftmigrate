@@ -2,10 +2,16 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
 import { emitProgress } from "./progressEmitter.js";
 import { SocketMessageCategory } from "../socket.js";
+import OpenAI from "openai";
 
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+const openAIClient = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
 
 export const callLLM = async(prompt = '') => {
   const model = genAI.getGenerativeModel({
@@ -40,7 +46,11 @@ export const convertWithAI = async (
   });
 
   const result = await model.generateContent(prompt);
-
+ /* await openAIClient.responses.create({
+  model: "gpt-4o-mini",
+  input: prompt
+});
+*/
   let text =
     result.choices?.[0]?.message?.content || result.response?.candidates?.[0]?.content?.parts?.[0]?.text || 
   result.output_text ||"";

@@ -8,11 +8,11 @@ import { SocketMessageCategory } from "../socket.js";
 export async function processFiles(orderedFiles, dependencyGraph, methodContentMap) {
   const memory = {};
   const maxAttempts = 2;
+  let totalTokenUsed = 0;
 
   for (const fileName of orderedFiles) {
     const node = dependencyGraph[fileName];
     const file = node.file;
-    let totalTokenUsed = 0;
 
     console.log(`\n🔄 Converting: ${fileName}`);
     emitProgress('conversion', `Converting: ${fileName}`, SocketMessageCategory.INFO, { file: fileName });
@@ -34,7 +34,7 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
       emitProgress('conversion', `Attempt ${attempt} for ${fileName}`, SocketMessageCategory.INFO, { file: fileName, attempt });
 
       // 🔥 Convert
-      playwrightCode = await convertWithAI(
+      generationOutput = await convertWithAI(
         fileName,
         file.content,
         dependencyCode,
