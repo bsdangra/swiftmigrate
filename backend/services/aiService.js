@@ -109,9 +109,9 @@ RELEVANT PAGE OBJECT CONTEXT
 ================================
 ${resolvedDependencyCode || "No relevant page object context provided"}
 
-================================
-KNOWN ISSUES
-================================
+===============================================
+Known Selenium to Playwright Construct mappings
+===============================================
 ${preprocessResult?.issues?.map(i => `- ${i.message}`).join("\n") || "None"}
 
 ================================
@@ -142,23 +142,14 @@ STRICT CONVERSION RULES
 - Use relative imports for page objects and utilities: e.g., import { LoginPage } from '../pages/LoginPage'.
 - Generate TypeScript files with .ts extension.
 - Include proper file organization and naming conventions.
-
-===============================================
-PROJECT STRUCTURE REQUIREMENTS AND ORGANIZATION
-===============================================
-- Organize files into the following folders: tests/ for test spec files, pages/ for Page Object Model classes, utils/ for utility functions (e.g., helpers, readers), base/ for base classes (e.g., test base, helpers), and config/ for configuration files.
-- Use relative imports: e.g., import { LoginPage } from '../pages/LoginPage'; import { Helper } from '../utils/Helper'.
-- Include a playwright.config.ts at root with basic configuration (browser settings, test directory).
 - Generate package.json with @playwright/test, TypeScript, and other necessary dependencies.
-- Avoid committing generated artifacts: Do not include node_modules/, playwright-report/, test-results/, or dist/ in the repository. These should be created at runtime.
 - Use flat folder structures where possible; avoid deep nesting unless necessary for organization (e.g., group related page objects in subfolders if there are many).
-- Ensure all source files are in TypeScript (.ts) for consistency, with tests/ containing .spec.ts files.
+- Convert Selenium Keys (e.g., Keys.ENTER, Keys.TAB) to Playwright keyboard actions: Use page.keyboard.press('Enter') or page.keyboard.type() for key inputs, and page.keyboard.down() for modifier keys like Shift or Ctrl.
 ========================
 FILE NAMING CONVENTIONS
 ========================
 - Use proper file naming: PascalCase for classes (LoginPage.ts), camelCase for utilities (helper.ts) and for method and variable names.
 - Name test files descriptively with .spec.ts suffix (e.g., LoginTest.spec.ts, EmployeeListFunctionality.spec.ts).
-- Name page object files after the page or component (e.g., DashboardPage.ts, AdminPage.ts).
 - Name utility files clearly (e.g., Config.ts, ExcelReaderUtil.ts, Log.ts).
 ================================
 CONFIGURATION FILES
@@ -171,14 +162,12 @@ ESSENTIAL ARTIFACTS AND INSTRUCTIONAL FILES
 ====================================
 - Include a .gitignore file with: node_modules/, playwright-report/, test-results/, dist/, .env, *.log, and OS-specific ignores (e.g., .DS_Store for macOS).
 - Include a README.md with sections: Project Description, Prerequisites (Node.js, npm), Installation (npm install && npm run install-browsers), Running Tests (npm test), and any setup notes (e.g., environment variables).
-- Optionally include a CONTRIBUTING.md or MIGRATION_NOTES.md explaining the conversion process and rules followed.
 - Add a package-lock.json (generated via npm install) to lock dependencies.
 ====================================
 EXECUTABILITY AND SETUP INSTRUCTIONS
 ====================================
 - Ensure the project is directly executable: Include clear instructions in README.md for end users to run npm install, npm run install-browsers, and npm test without additional setup.
 - Assume Node.js and npm are available; do not require global installations of Playwright.
-- Include a simple script or note to handle browser installation if needed.
 - Validate that tests can run in headless mode by default, with options for headed mode.
 ================================
 PLAYWRIGHT RULES
@@ -189,13 +178,9 @@ PLAYWRIGHT RULES
 - Use async functions and await every action
 - Use page.locator() over page.$ or direct selector strings when possible
 - Use expect() for assertions
-- Keep the output valid TypeScript code
-- Convert Selenium waits to Playwright equivalents: Use await page.waitForSelector() or await page.waitForLoadState() instead of implicit/explicit waits.
-- Handle locators: Prefer CSS selectors or Playwright's getByRole(), getByText(), etc., over XPath where possible.
 - Use Page Object Model: Encapsulate page interactions in classes with methods like async login(username, password).
 - Include error handling: Use try-catch in tests and log failures appropriately.
-- Configure retries and reporting: In playwright.config.ts, add retries: 1 and reporter: [['html', { open: 'never' }]].
-
+- Generate a final Allure report.
 ========================================
 MIGRATION RULES AND FIDELITY TO ORIGINAL
 ========================================
@@ -209,14 +194,28 @@ MIGRATION RULES AND FIDELITY TO ORIGINAL
 ADDITIONAL QUALITY CHECKS
 ================================
 - Ensure no syntax errors: All generated code must be valid TypeScript and runnable.
-- Add basic linting: Include ESLint config if possible, or at least ensure code follows standard formatting.
-- Test the output: After generation, verify the project installs and runs tests successfully.
+- Ensure code follows standard formatting.
 - Make it self-contained: Avoid external dependencies beyond what's in package.json.
-================================
+====================================
+KNOWN PATTERN HANDLING INSTRUCTIONS
+===================================
+## AI Resolver Entries
+- Convert TestNG DataProvider patterns into a 'for...of' loop where each dataset generates an independent named 'test()' block; if data comes from an external file and you't resolve it, insert a "Manual Review Recommended" comment in the final Allure report.
+- Convert 'executeAsyncScript' calls into 'await page.evaluate(() => new Promise(resolve => { ...original logic...; resolve(); }))' wrapping the original callback logic.
+- If DataProvider method body references a file reader utility, do not attempt data extraction - insert- "Manual Review Recommended: replace with Node fs/CSV read at the call site".
+- Replace custom soft assertion wrapper methods with Playwright's native 'expect.soft(locator)' chaining; preserve all assertion messages as the second argument.
+- Convert multi-window popup handling to 'const popupPromise = context.waitForEvent('page'); await triggerAction(); const popup = await popupPromise;'' pattern.
+## Unsupported Entries
+- If Robot Framework DSL keywords are detected, do not attempt migration — insert- "Manual Review Required: Robot Framework keyword '<name>' requires manual rewrite at each occurrence.
+- Flag all RemoteWebDriver instantiation and Grid configuration as "Manual Review Required" and -replace with Playwright connect() or project-level device config in playwright.config.ts
+- Flag all TestNG Listener classes and @Listeners annotations as '// UNSUPPORTED: implement equivalent using Playwright Allure report.
+- Flag custom retry and polling wrapper methods as '// UNSUPPORTED: Playwright has built-in auto-retry on assertions and configurable timeout — evaluate if this wrapper is still needed'.
+- All codes and constructs that cannot be directly mapped to Playwright equivalents should be flagged with "Manual Review Required" comments, and a brief note on the recommended Playwright approach if possible in the final Allure report.
+===================================
 OUTPUT
 ================================
-Return ONLY valid Playwright TypeScript code. No markdown fences, no extra comments, no explanation.
-`;
+Return ONLY valid Playwright TypeScript code that should be compile-ready and executable, adhering strictly to the above rules and conventions. The final generated project should have a Allure report.
+;
 }
 // 🔥 MAIN POM CONTEXT BUILDER
 function getRelevantPOMContext(testCode, pageObjects = []) {
