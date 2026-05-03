@@ -10,6 +10,20 @@ export default function Upload() {
   const navigate = useNavigate();
   const { setClassificationSummary } = useApp();
 
+  const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024;
+
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    const kb = bytes / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    return `${(kb / 1024).toFixed(1)} MB`;
+  };
+
+  const totalFileSize = files.reduce((sum, file) => sum + file.size, 0);
+  const isFileSizeExceeded = totalFileSize > MAX_UPLOAD_SIZE_BYTES;
+  const hasGithubUrl = githubUrl.trim().length > 0;
+  const canUpload = !loading && (hasGithubUrl || (files.length > 0 && !isFileSizeExceeded));
+
   // 📂 File select
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -90,6 +104,9 @@ export default function Upload() {
               Supports full Java projects — uploads and processes 50+ files
               automatically
             </p>
+            <p className="upload-hint">
+              Max supported upload size: {formatBytes(MAX_UPLOAD_SIZE_BYTES)}
+            </p>
           </div>
 
           {/* DROP ZONE */}
@@ -119,12 +136,18 @@ export default function Upload() {
 
           {/* SELECTED FILE */}
           {files.length > 0 && (
-            <div className="selected-file show">
-              <span className="file-name">{files[0].name}</span>
-              <button className="file-remove" onClick={handleClear}>
-                ✕
-              </button>
-            </div>
+            <>
+              <div className="selected-file show">
+                <span className="file-name">{files[0].name}</span>
+                <button className="file-remove" onClick={handleClear}>
+                  ✕
+                </button>
+              </div>
+              <div className="upload-hint" style={{ marginTop: "0.75rem", color: isFileSizeExceeded ? "var(--red)" : "var(--text3)" }}>
+                Total project size: {formatBytes(totalFileSize)}
+                {isFileSizeExceeded && ` — exceeds max supported size (${formatBytes(MAX_UPLOAD_SIZE_BYTES)})`}
+              </div>
+            </>
           )}
 
           {/* DIVIDER */}
@@ -155,7 +178,7 @@ export default function Upload() {
             <button
               className="btn-primary"
               onClick={handleUpload}
-              disabled={loading}
+              disabled={!canUpload}
               style={{ padding: "10px 24px", fontSize: 13 }}
             >
               {loading ? "Processing..." : "Analyse & Migrate →"}

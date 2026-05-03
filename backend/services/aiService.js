@@ -31,7 +31,8 @@ export const convertWithAI = async (
   steps = []
 ) => {
   const model = genAI.getGenerativeModel({
-    model: "gemini-3.1-pro-preview",
+    //model: "gemini-3.1-pro-preview",
+    model: "gemini-3.1-flash-lite-preview",
   });
 
   const normalizedDependencyCode = normalizeCodeInput(dependencyCode);
@@ -64,7 +65,7 @@ export const convertWithAI = async (
   const outputToken = result.usage?.completion_tokens || result.response?.usageMetadata?.candidatesTokenCount || result.usage?.output_tokens;
   let tokenUsed = inputToken + outputToken;
 
-  emitProgress('token utilization', `${tokenUsed}`, SocketMessageCategory.INFO);
+  emitProgress('done', `token utilization - ${tokenUsed}`, SocketMessageCategory.INFO);
   
   return {playwrightCode: cleanCode(text),
      tokenUsed}; 
@@ -81,7 +82,7 @@ function normalizeCodeInput(input) {
   if (typeof input === "object" && input !== null) {
     return normalizeCodeInput(input.content ?? input.code ?? input.body ?? "");
   }
-
+  
   return typeof input === "string" ? input : "";
 }
 

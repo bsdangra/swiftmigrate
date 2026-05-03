@@ -33,21 +33,32 @@ export default function Topbar({ tab, setTab }: Props) {
       </div>
 
       <div className="topbar-center">
-        {["overview", "classify", "logs", "report"].map((t) => (
-          <button
-            key={t}
-            className={`tab-btn ${tab === t ? "active" : ""}`}
-            onClick={() => setTab(t)}
-          >
-            {t === "classify" ? "File Classification" : t}
-          </button>
-        ))}
+        {['overview', 'classify', 'logs', 'report'].map((t) => {
+          const label =
+            t === 'overview'
+              ? 'Overview'
+              : t === 'classify'
+              ? 'File Classification'
+              : t === 'logs'
+              ? 'Logs'
+              : 'Report';
+
+          return (
+            <button
+              key={t}
+              className={`tab-btn ${tab === t ? "active" : ""}`}
+              onClick={() => setTab(t)}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="topbar-right">
-        <div className="status-pill running">
+        {/* <div className="status-pill running">
           <span className="pulse"></span> Converting
-        </div>
+        </div> */}
         <button className="btn-sm-outline" onClick={() => handleNew()}>
           + New
         </button>

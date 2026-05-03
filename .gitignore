@@ -52,7 +52,7 @@ playwright-report/
 test-results/
 backend/output/
 backend/uploads/
-*.zip
+backend/zips/
 
 # =========================
 # Coverage

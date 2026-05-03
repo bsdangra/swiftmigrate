@@ -88,8 +88,6 @@ export function validatePlaywrightCode(code = "", type = "test") {
   // =========================
   // 🎯 FINAL RESULT
   // =========================
-
-  console.log('ISSUES ', issues)
   
   return {
     valid: issues.length === 0,

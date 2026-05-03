@@ -83,11 +83,11 @@ export default function Overview({ progressStep }: OverviewProps) {
         </div>
 
         <div className="metric-card">
-          <div className="metric-label">Total files</div>
+          <div className="metric-label">Total</div>
           <div className="metric-val" style={{ color: "var(--blue)" }}>
             {classificationSummary.summary.totalFiles}
           </div>
-          <div className="metric-sub">in project</div>
+          <div className="metric-sub">java and selenimum files identified</div>
           <div className="metric-bar">
             <div
               className="metric-bar-fill"
@@ -97,12 +97,12 @@ export default function Overview({ progressStep }: OverviewProps) {
         </div>
 
         <div className="metric-card">
-          <div className="metric-label">Converted</div>
+          <div className="metric-label">Converting</div>
           <div className="metric-val" style={{ color: "var(--green)" }}>
             {classificationSummary.summary.base + classificationSummary.summary.pages + classificationSummary.summary.tests + classificationSummary.summary.utils}
           </div>
           <div className="metric-sub">
-            of {classificationSummary.summary.totalFiles} complete
+            of {classificationSummary.summary.totalFiles} files
           </div>
           <div className="metric-bar">
             <div
@@ -113,11 +113,11 @@ export default function Overview({ progressStep }: OverviewProps) {
         </div>
 
         <div className="metric-card">
-          <div className="metric-label">Unsupported patterns</div>
+          <div className="metric-label">LLM</div>
           <div className="metric-val" style={{ color: "var(--amber)" }}>
-            {classificationSummary.classified.ignored.length}
+            {'Made with Gemini'}
           </div>
-          <div className="metric-sub">flagged for review</div>
+          <div className="metric-sub">Model 3.1-pro-preview</div>
           <div className="metric-bar">
             <div
               className="metric-bar-fill"
@@ -135,9 +135,9 @@ export default function Overview({ progressStep }: OverviewProps) {
         {/* FILE CLASSIFICATION */}
         <div className="pipeline-card">
           <div className="card-header">
-            <span className="card-title">◈ File classification</span>
+            <span className="card-title">◈ File categorization</span>
             <span className="card-badge badge-green">
-              {classificationSummary.summary.totalFiles} files
+              {classificationSummary.summary.base + classificationSummary.summary.pages + classificationSummary.summary.tests + classificationSummary.summary.utils} files
             </span>
           </div>
 

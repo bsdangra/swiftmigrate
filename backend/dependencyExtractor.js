@@ -197,8 +197,7 @@ export function extractDependencies(filePath, classIndex, methodContentMap) {
   const extend  = extractExtends(content);
   const variables = extractVariables(content);
   const methods = extractMethods(content, variables, fileName, methodContentMap);
-//console.log("classIndex", { classIndex });
-console.log("extractDependencies", { fileName, pkg, fileType, imports, extend, variables, methods });
+
   return {
 
     fileName: fileName,
