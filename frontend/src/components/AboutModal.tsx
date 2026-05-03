@@ -97,11 +97,7 @@ export default function AboutModal({ open, onClose }: Props) {
 
         {/* DESCRIPTION */}
         <div className="about-description">
-          <strong>SwiftMigrate</strong> is an agentic AI pipeline that migrates
-          legacy Java Selenium test suites to Playwright. The deterministic rule
-          engine handles 90% of known patterns predictably. The AI agent layer
-          handles the remaining 10% with self-healing, new test generation, and
-          confidence-scored pattern resolution.
+          <strong>SwiftMigrate</strong> is an agentic AI pipeline that migrates legacy Java Selenium test suites to Playwright. A deterministic rule engine handles known patterns predictably - same input, same output, every time. The AI agent layer resolves complex patterns, self-heals failing tests, and generates additional test cases beyond what the original suite covered. Unresolvable patterns are explicitly flagged, never silently dropped.
         </div>
 
         {/* TEAM */}
