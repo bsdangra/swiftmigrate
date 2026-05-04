@@ -10,45 +10,52 @@ export default function AboutModal({ open, onClose }: Props) {
   const team = [
     {
       name: "Ashish Kumar",
-      role: "QA",
+      role: "Automation Maven",
       bg: "linear-gradient(135deg,#00E5A0,#4D9FFF)",
       initials: "AK",
+      imgSrc: 'src/assets/ashish.png',
     },
     {
       name: "Bharat Sharadkumar Dangra",
-      role: "Full Stack Engineer",
+      role: "Full Stack Craftsman",
       bg: "linear-gradient(135deg,#FFB020,#FF6B6B)",
       initials: "BSD",
+      imgSrc: 'src/assets/bharat.png',
     },
     {
       name: "Jyoti Patil",
-      role: "Scrum Master",
+      role: "Business Analyst",
       bg: "linear-gradient(135deg,#A78BFA,#7C3AED)",
       initials: "JP",
+      imgSrc: 'src/assets/jyoti.png',
     },
     {
       name: "Kaushik Kumar Mishra",
-      role: "QA",
+      role: "Automation Lead",
       bg: "linear-gradient(135deg,#A78BFA,#7C3AED)",
       initials: "KKM",
+      imgSrc: 'src/assets/kaushik.png',
     },
     {
       name: "Muktapuram Sridhar Sai Raghavi Reddy",
-      role: "UI Expert",
+      role: "Python Specialist",
       bg: "linear-gradient(135deg,#4D9FFF,#00E5A0)",
       initials: "MSSRR",
+      imgSrc: 'src/assets/raghavi.jpeg',
     },
     {
       name: "Pranavnath Jujaray",
       role: "Team Owner",
       bg: "linear-gradient(135deg,#00E5A0,#4D9FFF)",
       initials: "PJ",
+      imgSrc: 'src/assets/pranav.jpeg',
     },
     {
       name: "Seema Mittal",
       role: "Tech Lead",
       bg: "linear-gradient(135deg,#FFB020,#FF6B6B)",
       initials: "SM",
+      imgSrc: 'src/assets/seema.png',
     },
   ];
 
@@ -108,14 +115,22 @@ export default function AboutModal({ open, onClose }: Props) {
             <div key={m.name} className="team-member">
               <div
                 className="member-avatar"
-                style={{ background: m.bg }}
+                style={{ background: m.bg, overflow: "hidden" }}
               >
-                {m.initials}
+                <img
+                  src={m.imgSrc}
+                  alt={m.name}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
               </div>
 
               <div className="member-info">
                 <div className="member-name">{m.name}</div>
-                {/* <div className="member-role">{m.role}</div> */}
+                <div className="member-role">{m.role}</div>
               </div>
             </div>
           ))}
