@@ -2,10 +2,16 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
 import { emitProgress } from "./progressEmitter.js";
 import { SocketMessageCategory } from "../socket.js";
+import OpenAI from "openai";
 
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+const openAIClient = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
 
 export const callLLM = async(prompt = '') => {
   const model = genAI.getGenerativeModel({
@@ -25,14 +31,16 @@ export const convertWithAI = async (
   steps = []
 ) => {
   const model = genAI.getGenerativeModel({
-    model: "gemini-3.1-pro-preview",
+    //model: "gemini-3.1-pro-preview",
+    model: "gemini-3.1-flash-lite-preview",
   });
 
   const normalizedDependencyCode = normalizeCodeInput(dependencyCode);
   
   const prompt = buildPrompt({
+    fileName,
     seleniumCode,
-    dependencyCode: normalizedDependencyCode,
+    dependencyCode,
     errorContext,
     preprocessResult,
     previousPlaywrightCode,
@@ -40,7 +48,11 @@ export const convertWithAI = async (
   });
 
   const result = await model.generateContent(prompt);
-
+ /* await openAIClient.responses.create({
+  model: "gpt-4o-mini",
+  input: prompt
+});
+*/
   let text =
     result.choices?.[0]?.message?.content || result.response?.candidates?.[0]?.content?.parts?.[0]?.text || 
   result.output_text ||"";
@@ -54,7 +66,7 @@ export const convertWithAI = async (
   const outputToken = result.usage?.completion_tokens || result.response?.usageMetadata?.candidatesTokenCount || result.usage?.output_tokens;
   let tokenUsed = inputToken + outputToken;
 
-  emitProgress('token utilization', `${tokenUsed}`, SocketMessageCategory.INFO);
+  emitProgress('done', `token utilization - ${tokenUsed}`, SocketMessageCategory.INFO);
   
   return {playwrightCode: cleanCode(text),
      tokenUsed}; 
@@ -71,11 +83,12 @@ function normalizeCodeInput(input) {
   if (typeof input === "object" && input !== null) {
     return normalizeCodeInput(input.content ?? input.code ?? input.body ?? "");
   }
-
+  
   return typeof input === "string" ? input : "";
 }
 
 function buildPrompt({
+  fileName,
   seleniumCode,
   dependencyCode = "",
   errorContext,
@@ -87,10 +100,41 @@ function buildPrompt({
  
   return `
 TASK:
-Convert Selenium Java test into Playwright TypeScript.
+TASK:
+Convert Selenium Java code into Playwright TypeScript.
 
 ================================
-TEST SOURCE (SOURCE OF TRUTH)
+FILE TYPE HANDLING
+================================
+- If this is a TEST class → convert into Playwright test
+- If NOT a test (e.g., listener, utility, config):
+  - Do NOT generate test(...)
+  - Convert into a minimal valid TypeScript module OR mark as manual migration
+
+================================
+EXECUTION ISOLATION (CRITICAL)
+================================
+- This request is completely independent.
+- Ignore ALL previous prompts, responses, and memory.
+- Do NOT reuse code from any previous conversion.
+- Treat this as the FIRST and ONLY input.
+
+================================
+FILE IDENTITY (MANDATORY)
+================================
+FILE NAME: ${fileName || "UNKNOWN_FILE"}
+- You MUST generate output ONLY for this file.
+- If output corresponds to any other file, it is INVALID.
+
+================================
+ANTI-CONTAMINATION RULES
+================================
+- Do NOT copy or reuse any previously generated Playwright code.
+- Do NOT infer missing content from past conversions.
+- Every response must be derived ONLY from current TEST SOURCE.
+
+================================
+SOURCE CODE (SOURCE OF TRUTH)
 ================================
 ${seleniumCode}
 
@@ -99,20 +143,31 @@ RELEVANT PAGE OBJECT CONTEXT
 ================================
 ${resolvedDependencyCode || "No relevant page object context provided"}
 
+${preprocessResult?.issues?.length ? `
 ================================
 KNOWN ISSUES
 ================================
-${preprocessResult?.issues?.map(i => `- ${i.message}`).join("\n") || "None"}
+${preprocessResult?.issues?.map((i, index) => 
+`Mapping ${index + 1}:
+Type: ${i.type}
+Message: ${i.message}
+Suggestion: ${i.suggestion}`
+).join("\n\n")}
+` : ""}
 
+${errorContext ? `
 ================================
-PREVIOUS ERROR
+PREVIOUS ERROR (SAME FILE ONLY)
 ================================
-${errorContext || "None"}
+${errorContext}
+` : ""}
 
+${previousPlaywrightCode ? `
 ================================
-PREVIOUS ATTEMPT
+PREVIOUS ATTEMPT (SAME FILE ONLY)
 ================================
-${previousPlaywrightCode || "None"}
+${previousPlaywrightCode}
+` : ""}
 
 ================================
 STRICT CONVERSION RULES
@@ -128,7 +183,17 @@ STRICT CONVERSION RULES
 - Prefer page.locator() and expect() for interactions and assertions.
 - Use async/await for all Playwright operations.
 - Do NOT return markdown, comments, or explanation text.
-- Project package structure have base, pages, tests and utility folders, filetype of each type will go under corresponding folder on final generation. Improve import statements taking this into consideration and updating only when required.
+- Ensure generated code fits a standard Playwright project structure with folders: tests/, pages/, utils/, base/.
+- Use relative imports for page objects and utilities: e.g., import { LoginPage } from '../pages/LoginPage'.
+- Convert Selenium Keys (e.g., Keys.ENTER, Keys.TAB) to Playwright keyboard actions: Use page.keyboard.press('Enter') or page.keyboard.type() for key inputs, and page.keyboard.down() for modifier keys like Shift or Ctrl.
+- Do not add any other pages, base, utils import unless mentioned under RELEVANT PAGE OBJECT CONTEXT
+
+IDENTIFIER PRESERVATION (CRITICAL):
+- Preserve ALL identifiers EXACTLY (case-sensitive)
+- Do NOT rename or correct spelling
+- Do NOT normalize naming
+- Do NOT split or merge identifiers
+- If unsure, keep original identifier unchanged
 
 ================================
 PLAYWRIGHT RULES
@@ -139,15 +204,44 @@ PLAYWRIGHT RULES
 - Use async functions and await every action
 - Use page.locator() over page.$ or direct selector strings when possible
 - Use expect() for assertions
-- Keep the output valid TypeScript code
-
+- Use Page Object Model: Encapsulate page interactions in classes with methods like async login(username, password).
+- Include error handling: Use try-catch in tests and log failures appropriately.
+- Generate a final Allure report.
+========================================
+MIGRATION RULES AND FIDELITY TO ORIGINAL
+========================================
+- Keep the Playwright test logic as close as possible to the original Selenium tests: Preserve test flow, assertions, and data usage.
+- Maintain test data and configurations: Migrate any hardcoded values or external data sources (e.g., Excel readers) intact.
+- Preserve comments and naming: Retain original comments, variable names, and method signatures where feasible.
+- Handle unsupported features: If a Selenium feature has no direct Playwright equivalent, note it in comments and provide a workaround (e.g., for complex waits, use page.waitForFunction()).
+- If additional coverage is needed, add one or two extra Playwright test cases that extend the same user journey without changing the original Selenium test flow.
+- Keep the original test intact; any added cases must be additive and focused on complementary validations or missing assertions.
 ================================
+ADDITIONAL QUALITY CHECKS
+================================
+- Ensure no syntax errors: All generated code must be valid TypeScript and runnable.
+- Ensure code follows standard formatting.
+- Make it self-contained: Avoid external dependencies beyond what's in package.json.
+====================================
+KNOWN PATTERN HANDLING INSTRUCTIONS
+===================================
+## AI Resolver Entries
+- Convert TestNG DataProvider patterns into a 'for...of' loop where each dataset generates an independent named 'test()' block; if data comes from an external file and you't resolve it, insert a "Manual Review Recommended" comment in the final Allure report.
+- Convert 'executeAsyncScript' calls into 'await page.evaluate(() => new Promise(resolve => { ...original logic...; resolve(); }))' wrapping the original callback logic.
+- If DataProvider method body references a file reader utility, do not attempt data extraction - insert- "Manual Review Recommended: replace with Node fs/CSV read at the call site".
+- Replace custom soft assertion wrapper methods with Playwright's native 'expect.soft(locator)' chaining; preserve all assertion messages as the second argument.
+- Convert multi-window popup handling to 'const popupPromise = context.waitForEvent('page'); await triggerAction(); const popup = await popupPromise;'' pattern.
+## Unsupported Entries
+- If Robot Framework DSL keywords are detected, do not attempt migration — insert- "Manual Review Required: Robot Framework keyword '<name>' requires manual rewrite at each occurrence.
+- Flag all RemoteWebDriver instantiation and Grid configuration as "Manual Review Required" and -replace with Playwright connect() or project-level device config in playwright.config.ts
+- Flag all TestNG Listener classes and @Listeners annotations as '// UNSUPPORTED: implement equivalent using Playwright Allure report.
+- Flag custom retry and polling wrapper methods as '// UNSUPPORTED: Playwright has built-in auto-retry on assertions and configurable timeout — evaluate if this wrapper is still needed'.
+- All codes and constructs that cannot be directly mapped to Playwright equivalents should be flagged with "Manual Review Required" comments, and a brief note on the recommended Playwright approach if possible in the final Allure report.
+===================================
 OUTPUT
 ================================
-Return ONLY valid Playwright TypeScript code. No markdown fences, no extra comments, no explanation.
-`;
+Return ONLY valid Playwright TypeScript code that should be compile-ready and executable, adhering strictly to the above rules and conventions. The final generated project should have a Allure report.`;
 }
-
 
 // 🔥 MAIN POM CONTEXT BUILDER
 function getRelevantPOMContext(testCode, pageObjects = []) {

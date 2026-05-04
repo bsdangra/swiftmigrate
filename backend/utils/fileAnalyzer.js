@@ -90,7 +90,6 @@ export function classifyFiles(files) {
 }
 
 export function detectFileType(fileName, content){
-  console.log(`detectFileType filename ${fileName}`)
   const isTestByAnnotation = /@Test\b/.test(content);
     const hasLifecycleAnnotation = /@(BeforeClass|AfterClass|BeforeMethod|AfterMethod|BeforeTest|AfterTest|BeforeSuite|AfterSuite|BeforeGroups|AfterGroups|Before|After)\b/.test(content);
     const isPageByContent =
@@ -150,7 +149,6 @@ export function detectFileType(fileName, content){
 
     // ✅ 4. UTILS / SUPPORT FILES
     if (isUtilityByName) {
-      console.log(`detectFileType filename isUtilityByName`)
       return "utility";
     }
 

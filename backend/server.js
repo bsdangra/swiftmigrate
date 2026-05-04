@@ -58,7 +58,8 @@ app.post("/upload", upload.array("files"), async (req, res) => {
     const classIndex = {};   // shared map of class and path
     const methodContentMap = {};
 
-    emitProgress('upload', 'Files received', SocketMessageCategory.INFO);
+    emitProgress('upload', 'Files uploaded successfully. Starting extraction...', SocketMessageCategory.INFO);
+    emitProgress('upload', 'Step 1/5:  Extracting Java files and resolving dependencies...', SocketMessageCategory.INFO);
 
     // 🔥 1. Extract ALL files first
     for (const file of uploadedFiles) {
@@ -81,23 +82,27 @@ app.post("/upload", upload.array("files"), async (req, res) => {
         allJavaFiles.push(extract);
       }
     }
-    emitProgress('upload', 'Files extracted and categorized', SocketMessageCategory.INFO);
+    emitProgress('upload', 'Step 2/5: File extraction complete. Analyzing project structure...', SocketMessageCategory.INFO);
 
     // 🔥 2. FILTER (after extraction)
     //const filteredFiles = filterRelevantFiles(allJavaFiles);
     const filteredFiles = allJavaFiles;
+
+    emitProgress('classification', 'Step 3/5: Identifying framework and categorizing files...', SocketMessageCategory.INFO);
 
     // 🔥 3. Analyze
     const framework = detectFramework(filteredFiles);
 
     const classified = classifyFiles(filteredFiles);
 
+    emitProgress('classification', 'Step 4/5: Mapping test cases to corresponding page objects...', SocketMessageCategory.INFO);
     // 🔥 4. Map tests → POMs
     const mappedTests = mapTestsToPOMs(
       classified.testFiles,
       classified.pageObjects
     );
 
+    emitProgress('classification', 'Step 5/5: Building dependency graph for execution flow...', SocketMessageCategory.INFO);
     // 🔥 5. Build dependency graph
     const dependencyGraph = buildDependencyGraphWithUtil(
       mappedTests,
@@ -106,8 +111,7 @@ app.post("/upload", upload.array("files"), async (req, res) => {
       classified.utils
     );
 
-    emitProgress('classification', 'Dependency graph built', SocketMessageCategory.INFO);
-
+    
     // 🔥 6. Return structured response
     res.json({
       framework,
@@ -135,8 +139,8 @@ app.post("/process-project", async (req, res) => {
   try {
     const { dependencyGraph, methodContentMap, startTime } = req.body;
 
-    emitProgress('classification', 'Analyzing dependencies', SocketMessageCategory.INFO);
-
+    emitProgress('classification', 'Analyzing project dependencies and determining execution order...', SocketMessageCategory.INFO);
+    emitProgress('classification', 'Organizing files based on dependency flow...', SocketMessageCategory.INFO);
     // 🔥 STEP 1 — ORDER FILES
     //const orderedFiles = topoSort(dependencyGraph);
     const { ordered, unordered } = topoSortWithBuckets(dependencyGraph);
@@ -153,7 +157,7 @@ app.post("/process-project", async (req, res) => {
       });
     }
 
-    emitProgress('conversion', 'Starting file conversion', SocketMessageCategory.INFO);
+    emitProgress('conversion', 'Converting Selenium tests into Playwright format...', SocketMessageCategory.INFO);
 
     //🔥 STEP 2 + 3 — CONVERT FILES
     const { memory: convertedFiles, totalTokenUsed } = await processFiles(
@@ -162,25 +166,23 @@ app.post("/process-project", async (req, res) => {
       methodContentMap
     );
 
-    emitProgress('execution', 'Setting up execution environment', SocketMessageCategory.INFO);
+    emitProgress('execution', 'Preparing Playwright project...', SocketMessageCategory.INFO);
 
     // 🔥 Generate project
     const projectPath = await buildProject(convertedFiles);
-    
-    emitProgress('execution', 'Running tests', SocketMessageCategory.INFO);
 
     // 🔥 Runtime execution + healing
     const executionResult = await runtimeSelfHeal(projectPath, totalTokenUsed);
 
-    emitProgress('done', 'Process complete');
+   emitProgress('done', 'Conversion and validation complete. Your project is ready!', SocketMessageCategory.SUCCESS);
 
     // 🔥 Create zip of project
     const zipPath = await zipProject(projectPath);
     const endTime = Date.now();
     const totalExeSeconds = ((endTime - startTime) / 1000).toFixed(2);
-    console.log(`Total time: ${seconds} seconds`);
+    console.log(`Total time: ${totalExeSeconds} seconds`);
 
-    emitProgress('Total execution time in seconds', `${totalExeSeconds}`, SocketMessageCategory.INFO);
+    emitProgress('done', `${totalExeSeconds}`, SocketMessageCategory.INFO);
     
     res.json({
       success: executionResult.success,
@@ -192,7 +194,8 @@ app.post("/process-project", async (req, res) => {
       reportPath: "/report",
       ordered,
       unordered,
-      convertedCount: Object.keys(convertedFiles).length
+      convertedCount: Object.keys(convertedFiles).length,
+      totalTime: totalExeSeconds,
     });
 
   } catch (err) {

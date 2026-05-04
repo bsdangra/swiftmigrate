@@ -199,7 +199,6 @@ export function topoSortWithBuckets(graph) {
 
     deps.forEach(dep => {
       if (!normalizedGraph[dep]) {
-        console.warn(`⚠️ Missing dependency: ${dep} for ${node}`);
         return; // ignore but don't crash
       }
 

@@ -144,7 +144,7 @@ async function fixTestFiles(projectPath, errorContext, totalTokenUsed = 0) {
     const fixedCode = generationOutput.playwrightCode;
     totalTokenUsed += generationOutput.tokenUsed || 0;
 
-    emitProgress('token utilization', `${totalTokenUsed}`, SocketMessageCategory.INFO);
+    emitProgress('convert', `${totalTokenUsed}`, SocketMessageCategory.INFO);
 
     await fs.writeFile(filePath, fixedCode, "utf-8");
   }

@@ -79,7 +79,6 @@ export function resolvePOM(testContent, mappedPOMs = []) {
 
           // 🛑 STEP 1: Skip unsafe methods
           if (!isSafeToInline(method.body)) {
-            console.log(`⏭ Skipping complex method: ${methodName}`);
             return match;
           }
 
