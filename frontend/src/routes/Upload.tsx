@@ -22,7 +22,10 @@ export default function Upload() {
   const totalFileSize = files.reduce((sum, file) => sum + file.size, 0);
   const isFileSizeExceeded = totalFileSize > MAX_UPLOAD_SIZE_BYTES;
   const hasGithubUrl = githubUrl.trim().length > 0;
-  const canUpload = !loading && (hasGithubUrl || (files.length > 0 && !isFileSizeExceeded));
+  const canUpload =
+  !loading &&
+  !isFileSizeExceeded &&
+  (files.length > 0 || hasGithubUrl);
 
   // 📂 File select
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -175,15 +178,16 @@ export default function Upload() {
 
           {/* FOOTER */}
           <div className="upload-footer">
+          {canUpload && (
             <button
               className="btn-primary"
               onClick={handleUpload}
-              disabled={!canUpload}
               style={{ padding: "10px 24px", fontSize: 13 }}
             >
               {loading ? "Processing..." : "Analyse & Migrate →"}
             </button>
-          </div>
+          )}
+        </div>
         </div>
       </div>
     </div>

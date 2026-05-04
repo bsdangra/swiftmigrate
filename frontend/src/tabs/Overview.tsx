@@ -211,8 +211,8 @@ export default function Overview({ progressStep }: OverviewProps) {
         {/* AI ACTIVITY */}
         <div className="pipeline-card">
           <div className="card-header">
-            <span className="card-title">◎ Live Updates</span>
-            <span className="card-badge badge-blue">Live</span>
+            <span className="card-title">◎ Live Activity</span>
+            <span className="card-badge badge-blue live-badge">Live</span>
           </div>
 
           <div className="ai-actions-list">
