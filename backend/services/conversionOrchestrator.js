@@ -50,7 +50,7 @@ async function safeConvert(fn, maxRetries = 3) {
 
 export async function processFiles(orderedFiles, dependencyGraph, methodContentMap) {
   const memory = {};
-  const maxAttempts = 2;
+  const maxAttempts = 3;
   let totalTokenUsed = 0;
 
   for (const fileName of orderedFiles) {

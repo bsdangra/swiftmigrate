@@ -86,7 +86,7 @@ export async function runPlaywrightProject(projectPath) {
   }
 }
 
-export async function runtimeSelfHeal(projectPath, totalTokenUsed, maxAttempts = 2) {
+export async function runtimeSelfHeal(projectPath, totalTokenUsed, maxAttempts = 3) {
   let attempt = 0;
   let lastError = "";
 
