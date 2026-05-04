@@ -169,10 +169,11 @@ STRICT CONVERSION RULES
 - Prefer page.locator() and expect() for interactions and assertions.
 - Use async/await for all Playwright operations.
 - Do NOT return markdown, comments, or explanation text.
-- Ensure generated code fits a standard Playwright project structure with folders: tests/, pages/, utils/, base/.
-- Use relative imports for page objects and utilities: e.g., import { LoginPage } from '../pages/LoginPage'.
+- Project package structure have base, pages, tests and utils folders, filetype of each type will go under corresponding folder on final generation.
+- Improve import statements taking this into consideration filetype mentioned for each file under dependsOn section and updating only when required, example if dependOn have UiHelper.java filetype base then import from will be like ./base/UiHelper
+- Do not add any other pages, base, utils import unless mentioned under RELEVANT PAGE OBJECT CONTEXT.
+- Any generated file cannot import itself or have cyclic imports.
 - Convert Selenium Keys (e.g., Keys.ENTER, Keys.TAB) to Playwright keyboard actions: Use page.keyboard.press('Enter') or page.keyboard.type() for key inputs, and page.keyboard.down() for modifier keys like Shift or Ctrl.
-- Do not add any other pages, base, utils import unless mentioned under RELEVANT PAGE OBJECT CONTEXT
 
 ================================
 PLAYWRIGHT RULES
