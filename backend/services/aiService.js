@@ -47,12 +47,12 @@ export const convertWithAI = async (
     steps
   });
 
-  const result = await model.generateContent(prompt);
- /* await openAIClient.responses.create({
+  const result =// await model.generateContent(prompt);
+  await openAIClient.responses.create({
   model: "gpt-4o-mini",
   input: prompt
 });
-*/
+
   let text =
     result.choices?.[0]?.message?.content || result.response?.candidates?.[0]?.content?.parts?.[0]?.text || 
   result.output_text ||"";
