@@ -100,7 +100,16 @@ function buildPrompt({
  
   return `
 TASK:
-Convert Selenium Java test into Playwright TypeScript.
+TASK:
+Convert Selenium Java code into Playwright TypeScript.
+
+================================
+FILE TYPE HANDLING
+================================
+- If this is a TEST class → convert into Playwright test
+- If NOT a test (e.g., listener, utility, config):
+  - Do NOT generate test(...)
+  - Convert into a minimal valid TypeScript module OR mark as manual migration
 
 ================================
 EXECUTION ISOLATION (CRITICAL)
@@ -125,7 +134,7 @@ ANTI-CONTAMINATION RULES
 - Every response must be derived ONLY from current TEST SOURCE.
 
 ================================
-TEST SOURCE (SOURCE OF TRUTH)
+SOURCE CODE (SOURCE OF TRUTH)
 ================================
 ${seleniumCode}
 
@@ -138,7 +147,12 @@ ${preprocessResult?.issues?.length ? `
 ================================
 KNOWN ISSUES
 ================================
-${preprocessResult.issues.map(i => `- ${i.message}`).join("\n")}
+${preprocessResult?.issues?.map((i, index) => 
+`Mapping ${index + 1}:
+Type: ${i.type}
+Message: ${i.message}
+Suggestion: ${i.suggestion}`
+).join("\n\n")}
 ` : ""}
 
 ${errorContext ? `
@@ -173,6 +187,13 @@ STRICT CONVERSION RULES
 - Use relative imports for page objects and utilities: e.g., import { LoginPage } from '../pages/LoginPage'.
 - Convert Selenium Keys (e.g., Keys.ENTER, Keys.TAB) to Playwright keyboard actions: Use page.keyboard.press('Enter') or page.keyboard.type() for key inputs, and page.keyboard.down() for modifier keys like Shift or Ctrl.
 - Do not add any other pages, base, utils import unless mentioned under RELEVANT PAGE OBJECT CONTEXT
+
+IDENTIFIER PRESERVATION (CRITICAL):
+- Preserve ALL identifiers EXACTLY (case-sensitive)
+- Do NOT rename or correct spelling
+- Do NOT normalize naming
+- Do NOT split or merge identifiers
+- If unsure, keep original identifier unchanged
 
 ================================
 PLAYWRIGHT RULES
@@ -219,9 +240,9 @@ KNOWN PATTERN HANDLING INSTRUCTIONS
 ===================================
 OUTPUT
 ================================
-Return ONLY valid Playwright TypeScript code that should be compile-ready and executable, adhering strictly to the above rules and conventions. The final generated project should have a Allure report.
-;
+Return ONLY valid Playwright TypeScript code that should be compile-ready and executable, adhering strictly to the above rules and conventions. The final generated project should have a Allure report.`;
 }
+
 // 🔥 MAIN POM CONTEXT BUILDER
 function getRelevantPOMContext(testCode, pageObjects = []) {
   if (!pageObjects.length) return "No page objects provided";
