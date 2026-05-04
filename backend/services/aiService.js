@@ -140,21 +140,8 @@ STRICT CONVERSION RULES
 - Do NOT return markdown, comments, or explanation text.
 - Ensure generated code fits a standard Playwright project structure with folders: tests/, pages/, utils/, base/.
 - Use relative imports for page objects and utilities: e.g., import { LoginPage } from '../pages/LoginPage'.
-- Generate TypeScript files with .ts extension.
-- Generate package.json with @playwright/test, TypeScript, and other necessary dependencies.
 - Convert Selenium Keys (e.g., Keys.ENTER, Keys.TAB) to Playwright keyboard actions: Use page.keyboard.press('Enter') or page.keyboard.type() for key inputs, and page.keyboard.down() for modifier keys like Shift or Ctrl.
 
-================================
-CONFIGURATION FILES
-================================
-- Include a playwright.config.ts with: testDir: './tests', use: { headless: true }, and any necessary browser configurations (e.g., projects: [{ name: 'chromium', use: { ... } }]).
-- Include a tsconfig.json with: "target": "ESNext", "module": "commonjs", "strict": true, "esModuleInterop": true, "moduleResolution": "node", "resolveJsonModule": true, "outDir": "dist", and "include": ["tests", "pages", "utils", "base"].
-- Ensure package.json has: "scripts": { "test": "playwright test", "install-browsers": "playwright install" }, and list @playwright/test and typescript as devDependencies with pinned versions (e.g., "@playwright/test": "^1.45.0").
-====================================
-ESSENTIAL ARTIFACTS AND INSTRUCTIONAL FILES
-====================================
-- Include a README.md with sections: Project Description, Prerequisites (Node.js, npm), Installation (npm install && npm run install-browsers), Running Tests (npm test), and any setup notes (e.g., environment variables).
-- Add a package-lock.json (generated via npm install) to lock dependencies.
 ================================
 PLAYWRIGHT RULES
 ================================
