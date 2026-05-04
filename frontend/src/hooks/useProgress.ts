@@ -28,7 +28,6 @@ export function useProgress() {
     useEffect(() => {
         // Initialize with pending events
         const pending = getPendingEvents();
-        console.log('🚀 useProgress initialized with pending events:', pending);
         
         // Add pending events to log context
         pending.forEach((event: ProgressEvent) => {
@@ -36,7 +35,6 @@ export function useProgress() {
         });
 
         const handler = (data: ProgressEvent) => {
-            console.log('📨 [useProgress] Received progress event:', data);
             
             // Add to global log context
             addEvent(data);
@@ -49,7 +47,6 @@ export function useProgress() {
             }
         };
         
-        console.log('🔌 Setting up progress listener in useProgress...');
         addProgressListener(handler);
         
         return () => {

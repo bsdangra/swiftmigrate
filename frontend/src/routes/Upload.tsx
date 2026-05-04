@@ -153,10 +153,9 @@ export default function Upload() {
             </>
           )}
 
-          {/* DIVIDER */}
-          <div className="upload-divider">or import from GitHub</div>
+          
+          {/* <div className="upload-divider">or import from GitHub</div>
 
-          {/* GITHUB INPUT */}
           <div className="url-input-row">
             <input
               className="url-input"
@@ -174,7 +173,7 @@ export default function Upload() {
             >
               Import
             </button>
-          </div>
+          </div> */}
 
           {/* FOOTER */}
           <div className="upload-footer">

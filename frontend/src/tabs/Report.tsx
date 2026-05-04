@@ -52,7 +52,7 @@ export default function Report({ onRedirectToOverview }: Props) {
           </div>
 
           {/* STATS */}
-          <div className="report-stats">
+          {/* <div className="report-stats">
             <div className="rstat">
               <div className="rstat-num">{123}</div>
               <div className="rstat-lbl">files converted</div>
@@ -67,7 +67,7 @@ export default function Report({ onRedirectToOverview }: Props) {
               <div className="rstat-num">{'projectData.unsupported'}</div>
               <div className="rstat-lbl">flagged</div>
             </div>
-          </div>
+          </div> */}
           <div className="report-section report-iframe-section">
               <div className="report-section-title">Embedded Report</div>
               <iframe

@@ -210,7 +210,3 @@ export function extractDependencies(filePath, classIndex, methodContentMap) {
     methods
   };
 }
-
-// -------- Example Run --------
-//const result = extractDependencies("./LoginTest.java");
-//console.log(JSON.stringify(result, null, 2));

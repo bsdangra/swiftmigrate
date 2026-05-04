@@ -10,7 +10,6 @@ export const SocketMessageCategory = {
 };
 
 export function initSocket(app) {
-    console.log("🔧 Initializing socket.io...");
     const server = http.createServer(app);
 
     const io = new Server(server, {
@@ -19,7 +18,6 @@ export function initSocket(app) {
         },
     });
 
-    console.log("✅ Socket.io server created");
     global.io = io;
 
     io.on("connection", (socket) => {
