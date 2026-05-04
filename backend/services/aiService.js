@@ -141,16 +141,9 @@ STRICT CONVERSION RULES
 - Ensure generated code fits a standard Playwright project structure with folders: tests/, pages/, utils/, base/.
 - Use relative imports for page objects and utilities: e.g., import { LoginPage } from '../pages/LoginPage'.
 - Generate TypeScript files with .ts extension.
-- Include proper file organization and naming conventions.
 - Generate package.json with @playwright/test, TypeScript, and other necessary dependencies.
-- Use flat folder structures where possible; avoid deep nesting unless necessary for organization (e.g., group related page objects in subfolders if there are many).
 - Convert Selenium Keys (e.g., Keys.ENTER, Keys.TAB) to Playwright keyboard actions: Use page.keyboard.press('Enter') or page.keyboard.type() for key inputs, and page.keyboard.down() for modifier keys like Shift or Ctrl.
-========================
-FILE NAMING CONVENTIONS
-========================
-- Use proper file naming: PascalCase for classes (LoginPage.ts), camelCase for utilities (helper.ts) and for method and variable names.
-- Name test files descriptively with .spec.ts suffix (e.g., LoginTest.spec.ts, EmployeeListFunctionality.spec.ts).
-- Name utility files clearly (e.g., Config.ts, ExcelReaderUtil.ts, Log.ts).
+
 ================================
 CONFIGURATION FILES
 ================================
@@ -160,15 +153,8 @@ CONFIGURATION FILES
 ====================================
 ESSENTIAL ARTIFACTS AND INSTRUCTIONAL FILES
 ====================================
-- Include a .gitignore file with: node_modules/, playwright-report/, test-results/, dist/, .env, *.log, and OS-specific ignores (e.g., .DS_Store for macOS).
 - Include a README.md with sections: Project Description, Prerequisites (Node.js, npm), Installation (npm install && npm run install-browsers), Running Tests (npm test), and any setup notes (e.g., environment variables).
 - Add a package-lock.json (generated via npm install) to lock dependencies.
-====================================
-EXECUTABILITY AND SETUP INSTRUCTIONS
-====================================
-- Ensure the project is directly executable: Include clear instructions in README.md for end users to run npm install, npm run install-browsers, and npm test without additional setup.
-- Assume Node.js and npm are available; do not require global installations of Playwright.
-- Validate that tests can run in headless mode by default, with options for headed mode.
 ================================
 PLAYWRIGHT RULES
 ================================
@@ -184,7 +170,7 @@ PLAYWRIGHT RULES
 ========================================
 MIGRATION RULES AND FIDELITY TO ORIGINAL
 ========================================
-- Keep the source test logic as close as possible to the original Selenium tests: Preserve test flow, assertions, and data usage.
+- Keep the Playwright test logic as close as possible to the original Selenium tests: Preserve test flow, assertions, and data usage.
 - Maintain test data and configurations: Migrate any hardcoded values or external data sources (e.g., Excel readers) intact.
 - Preserve comments and naming: Retain original comments, variable names, and method signatures where feasible.
 - Handle unsupported features: If a Selenium feature has no direct Playwright equivalent, note it in comments and provide a workaround (e.g., for complex waits, use page.waitForFunction()).
