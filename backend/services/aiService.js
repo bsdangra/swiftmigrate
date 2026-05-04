@@ -38,8 +38,9 @@ export const convertWithAI = async (
   const normalizedDependencyCode = normalizeCodeInput(dependencyCode);
   
   const prompt = buildPrompt({
+    fileName,
     seleniumCode,
-    dependencyCode: normalizedDependencyCode,
+    dependencyCode,
     errorContext,
     preprocessResult,
     previousPlaywrightCode,
@@ -87,6 +88,7 @@ function normalizeCodeInput(input) {
 }
 
 function buildPrompt({
+  fileName,
   seleniumCode,
   dependencyCode = "",
   errorContext,
@@ -101,6 +103,28 @@ TASK:
 Convert Selenium Java test into Playwright TypeScript.
 
 ================================
+EXECUTION ISOLATION (CRITICAL)
+================================
+- This request is completely independent.
+- Ignore ALL previous prompts, responses, and memory.
+- Do NOT reuse code from any previous conversion.
+- Treat this as the FIRST and ONLY input.
+
+================================
+FILE IDENTITY (MANDATORY)
+================================
+FILE NAME: ${fileName || "UNKNOWN_FILE"}
+- You MUST generate output ONLY for this file.
+- If output corresponds to any other file, it is INVALID.
+
+================================
+ANTI-CONTAMINATION RULES
+================================
+- Do NOT copy or reuse any previously generated Playwright code.
+- Do NOT infer missing content from past conversions.
+- Every response must be derived ONLY from current TEST SOURCE.
+
+================================
 TEST SOURCE (SOURCE OF TRUTH)
 ================================
 ${seleniumCode}
@@ -110,20 +134,26 @@ RELEVANT PAGE OBJECT CONTEXT
 ================================
 ${resolvedDependencyCode || "No relevant page object context provided"}
 
-===============================================
-Known Selenium to Playwright Construct mappings
-===============================================
-${preprocessResult?.issues?.map(i => `- ${i.message}`).join("\n") || "None"}
+${preprocessResult?.issues?.length ? `
+================================
+KNOWN ISSUES
+================================
+${preprocessResult.issues.map(i => `- ${i.message}`).join("\n")}
+` : ""}
 
+${errorContext ? `
 ================================
-PREVIOUS ERROR
+PREVIOUS ERROR (SAME FILE ONLY)
 ================================
-${errorContext || "None"}
+${errorContext}
+` : ""}
 
+${previousPlaywrightCode ? `
 ================================
-PREVIOUS ATTEMPT
+PREVIOUS ATTEMPT (SAME FILE ONLY)
 ================================
-${previousPlaywrightCode || "None"}
+${previousPlaywrightCode}
+` : ""}
 
 ================================
 STRICT CONVERSION RULES
@@ -142,6 +172,7 @@ STRICT CONVERSION RULES
 - Ensure generated code fits a standard Playwright project structure with folders: tests/, pages/, utils/, base/.
 - Use relative imports for page objects and utilities: e.g., import { LoginPage } from '../pages/LoginPage'.
 - Convert Selenium Keys (e.g., Keys.ENTER, Keys.TAB) to Playwright keyboard actions: Use page.keyboard.press('Enter') or page.keyboard.type() for key inputs, and page.keyboard.down() for modifier keys like Shift or Ctrl.
+- Do not add any other pages, base, utils import unless mentioned under RELEVANT PAGE OBJECT CONTEXT
 
 ================================
 PLAYWRIGHT RULES
