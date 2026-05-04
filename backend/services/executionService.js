@@ -25,6 +25,18 @@ function execWithExit(command, options = {}) {
 }
 
 async function generateAllureReport(projectPath) {
+  const resultsDir = path.join(projectPath, "allure-results");
+  let resultJsonCount = 0;
+  try {
+    const names = await fs.readdir(resultsDir);
+    resultJsonCount = names.filter((n) => n.endsWith(".json")).length;
+  } catch {
+    /* missing or empty */
+  }
+  console.log(
+    `📊 Allure: ${resultJsonCount} result JSON file(s) under ${resultsDir} (0 → report will look empty)`
+  );
+
   try {
     await execAsync("npx allure generate ./allure-results --clean -o ./allure-report", {
       cwd: projectPath,
