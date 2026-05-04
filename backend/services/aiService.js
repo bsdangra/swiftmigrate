@@ -110,9 +110,9 @@ RELEVANT PAGE OBJECT CONTEXT
 ================================
 ${resolvedDependencyCode || "No relevant page object context provided"}
 
-================================
-KNOWN ISSUES
-================================
+===============================================
+Known Selenium to Playwright Construct mappings
+===============================================
 ${preprocessResult?.issues?.map(i => `- ${i.message}`).join("\n") || "None"}
 
 ================================
@@ -139,7 +139,9 @@ STRICT CONVERSION RULES
 - Prefer page.locator() and expect() for interactions and assertions.
 - Use async/await for all Playwright operations.
 - Do NOT return markdown, comments, or explanation text.
-- Project package structure have base, pages, tests and utility folders, filetype of each type will go under corresponding folder on final generation. Improve import statements taking this into consideration and updating only when required.
+- Ensure generated code fits a standard Playwright project structure with folders: tests/, pages/, utils/, base/.
+- Use relative imports for page objects and utilities: e.g., import { LoginPage } from '../pages/LoginPage'.
+- Convert Selenium Keys (e.g., Keys.ENTER, Keys.TAB) to Playwright keyboard actions: Use page.keyboard.press('Enter') or page.keyboard.type() for key inputs, and page.keyboard.down() for modifier keys like Shift or Ctrl.
 
 ================================
 PLAYWRIGHT RULES
@@ -150,16 +152,45 @@ PLAYWRIGHT RULES
 - Use async functions and await every action
 - Use page.locator() over page.$ or direct selector strings when possible
 - Use expect() for assertions
-- Keep the output valid TypeScript code
-
+- Use Page Object Model: Encapsulate page interactions in classes with methods like async login(username, password).
+- Include error handling: Use try-catch in tests and log failures appropriately.
+- Generate a final Allure report.
+========================================
+MIGRATION RULES AND FIDELITY TO ORIGINAL
+========================================
+- Keep the Playwright test logic as close as possible to the original Selenium tests: Preserve test flow, assertions, and data usage.
+- Maintain test data and configurations: Migrate any hardcoded values or external data sources (e.g., Excel readers) intact.
+- Preserve comments and naming: Retain original comments, variable names, and method signatures where feasible.
+- Handle unsupported features: If a Selenium feature has no direct Playwright equivalent, note it in comments and provide a workaround (e.g., for complex waits, use page.waitForFunction()).
+- If additional coverage is needed, add one or two extra Playwright test cases that extend the same user journey without changing the original Selenium test flow.
+- Keep the original test intact; any added cases must be additive and focused on complementary validations or missing assertions.
 ================================
+ADDITIONAL QUALITY CHECKS
+================================
+- Ensure no syntax errors: All generated code must be valid TypeScript and runnable.
+- Ensure code follows standard formatting.
+- Make it self-contained: Avoid external dependencies beyond what's in package.json.
+====================================
+KNOWN PATTERN HANDLING INSTRUCTIONS
+===================================
+## AI Resolver Entries
+- Convert TestNG DataProvider patterns into a 'for...of' loop where each dataset generates an independent named 'test()' block; if data comes from an external file and you't resolve it, insert a "Manual Review Recommended" comment in the final Allure report.
+- Convert 'executeAsyncScript' calls into 'await page.evaluate(() => new Promise(resolve => { ...original logic...; resolve(); }))' wrapping the original callback logic.
+- If DataProvider method body references a file reader utility, do not attempt data extraction - insert- "Manual Review Recommended: replace with Node fs/CSV read at the call site".
+- Replace custom soft assertion wrapper methods with Playwright's native 'expect.soft(locator)' chaining; preserve all assertion messages as the second argument.
+- Convert multi-window popup handling to 'const popupPromise = context.waitForEvent('page'); await triggerAction(); const popup = await popupPromise;'' pattern.
+## Unsupported Entries
+- If Robot Framework DSL keywords are detected, do not attempt migration — insert- "Manual Review Required: Robot Framework keyword '<name>' requires manual rewrite at each occurrence.
+- Flag all RemoteWebDriver instantiation and Grid configuration as "Manual Review Required" and -replace with Playwright connect() or project-level device config in playwright.config.ts
+- Flag all TestNG Listener classes and @Listeners annotations as '// UNSUPPORTED: implement equivalent using Playwright Allure report.
+- Flag custom retry and polling wrapper methods as '// UNSUPPORTED: Playwright has built-in auto-retry on assertions and configurable timeout — evaluate if this wrapper is still needed'.
+- All codes and constructs that cannot be directly mapped to Playwright equivalents should be flagged with "Manual Review Required" comments, and a brief note on the recommended Playwright approach if possible in the final Allure report.
+===================================
 OUTPUT
 ================================
-Return ONLY valid Playwright TypeScript code. No markdown fences, no extra comments, no explanation.
-`;
+Return ONLY valid Playwright TypeScript code that should be compile-ready and executable, adhering strictly to the above rules and conventions. The final generated project should have a Allure report.
+;
 }
-
-
 // 🔥 MAIN POM CONTEXT BUILDER
 function getRelevantPOMContext(testCode, pageObjects = []) {
   if (!pageObjects.length) return "No page objects provided";
