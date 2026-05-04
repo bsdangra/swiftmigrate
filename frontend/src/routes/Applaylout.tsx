@@ -43,9 +43,10 @@ export default function AppLayout() {
         methodContentMap: classificationSummary.methodContentMap || {},
         startTime: classificationSummary.startTime || Date.now(),
       });
+      setProgressStep(3);
 
       if (res.success) {
-        setProgressStep(3);
+        setProgressStep(4);
         setProjectData({
           attempts: res.attempts || 0,
           logs: res.logs || '',
@@ -58,7 +59,17 @@ export default function AppLayout() {
 
         setTab("report");
       } else {
-        setProgressStep(3);
+        setProgressStep(4);
+        setProjectData({
+          attempts: res.attempts || 0,
+          logs: res.logs || '',
+          zipPath: res.zipPath || "",
+          reportPath: res.reportPath || "",
+          ordered: res.ordered || [],
+          unordered: res.unordered || [],
+          convertedCount: res.convertedCount || 0,
+        });
+        setTab("report");
       }
     } catch (err) {
       console.error('❌ Processing failed:', err);

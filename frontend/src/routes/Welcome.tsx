@@ -17,7 +17,17 @@ export default function Welcome() {
 
         {/* Logo */}
         <div className="welcome-logo">
-          <div className="logo-mark">SM</div>
+          <div className="logo-mark">
+            <img
+              src="src/assets/antaran-logo.webp"
+              alt="Antaran Logo"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+              }}
+            />
+          </div>
           <div style={{ textAlign: "left" }}>
             <div
               style={{

@@ -147,6 +147,7 @@ async function fixTestFiles(projectPath, errorContext, totalTokenUsed = 0) {
     console.log(`🛠 Fixing ${file}`);
 
     const generationOutput = await convertWithAI(
+      file,
       content,
       "",               // no dependency code needed here
       errorContext,     // 🔥 runtime error
