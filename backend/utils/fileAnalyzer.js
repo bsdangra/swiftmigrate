@@ -42,8 +42,7 @@ export function classifyFiles(files) {
     testFiles: [],
     pageObjects: [],
     baseClasses: [],
-    utils: [],
-    ignored: []
+    utils: []
   };
 
   files.forEach((file) => {
@@ -78,11 +77,6 @@ export function classifyFiles(files) {
     if (fileType === ("utility")) {
       result.utils.push(file);
       return;
-    }
-
-    // ❗ fallback
-    if (fileType === ("unknown")) {
-     result.ignored.push(file);
     }
   });
 
@@ -153,7 +147,7 @@ export function detectFileType(fileName, content){
     }
 
     // ❗ fallback
-    return "unknown";
+    return "utility";
 }
 
 export function extractUsedClasses(testContent) {
