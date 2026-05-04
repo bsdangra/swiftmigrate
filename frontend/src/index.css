@@ -41,6 +41,12 @@ html, body, #root { min-height:100%; }
 .feat-desc{font-size:11px;color:var(--text2);line-height:1.4}
 .btn-primary{background:var(--green);color:#0A0C10;font-family:var(--font);font-size:14px;font-weight:600;padding:12px 32px;border-radius:var(--r8);border:none;cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;gap:8px}
 .btn-primary:hover{background:#00FFB0;transform:translateY(-1px)}
+#pg-welcome.page.active {
+  flex-direction: row;   /* break out of column prison */
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
 
 /* ─── UPLOAD PAGE ─── */
 #pg-upload{padding:2rem;align-items:center;justify-content:center}
@@ -248,6 +254,7 @@ html, body, #root { min-height:100%; }
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
   border-bottom: 0.5px solid var(--border);
+  position: relative;
 }
 .about-modal {
   animation: slideUp 0.25s ease;
@@ -263,7 +270,42 @@ html, body, #root { min-height:100%; }
     transform: translateY(0);
   }
 }
+.about-close {
+  position: absolute;
+  right: 0;              /* 👉 push to extreme right */
+  top: 0;
 
+  width: 32px;
+  height: 32px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 8px;
+  border: 0.5px solid var(--border);
+
+  background: var(--bg2);
+  color: var(--text2);
+
+  font-size: 14px;
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+/* ✨ Hover magic */
+.about-close:hover {
+  background: var(--red-bg);
+  color: var(--red);
+  border-color: var(--red);
+  transform: scale(1.05);
+}
+
+/* ✨ Click feedback */
+.about-close:active {
+  transform: scale(0.95);
+}
 .about-logo {
   width: 40px;
   height: 40px;
@@ -427,13 +469,16 @@ html, body, #root { min-height:100%; }
   border-radius: 8px;
   border: 1px solid var(--border);
 }
-
 .hld-wrapper {
+  display: flex;              /* 🔥 key change */
+  align-items: center;        /* vertical center */
+  justify-content: center;    /* horizontal center */
+
   max-height: 60vh;
   overflow: auto;
+
   cursor: grab;
 }
-
 /* LLD */
 .lld-grid {
   display: grid;
@@ -456,4 +501,60 @@ html, body, #root { min-height:100%; }
 .lld-desc {
   font-size: 11px;
   color: var(--text2);
+}
+
+.live-badge {
+  position: relative;
+  overflow: visible;
+  animation: floaty 2.2s ease-in-out infinite;
+}
+
+/* gentle float + micro shake */
+@keyframes floaty {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-1px);
+  }
+}
+
+/* pulsing glow core */
+.live-badge::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  background: rgba(77, 159, 255, 0.25);
+  filter: blur(6px);
+  opacity: 0.6;
+  animation: pulseGlow 1.8s ease-in-out infinite;
+  z-index: -1;
+}
+
+/* expanding wave ring */
+.live-badge::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  border: 1px solid rgba(77, 159, 255, 0.4);
+  opacity: 0;
+  animation: wave 2.2s ease-out infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.05); }
+}
+
+@keyframes wave {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
 }

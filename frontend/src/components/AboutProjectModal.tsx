@@ -91,16 +91,17 @@ export default function AboutProjectModal({ open, onClose }: Props) {
 
           {tab === "hld" && (
             <div className="project-section hld-wrapper">
-                <TransformWrapper>
-                <TransformComponent>
-                    <img
-                        src={hld}
-                        alt="HLD Diagram"
-                        className="hld-image"
-                    />
-                </TransformComponent>
-                </TransformWrapper>
-             
+              <TransformWrapper>
+                {({ resetTransform }) => (
+                  <>
+                    <TransformComponent>
+                      <img src={hld} alt="HLD Diagram" className="hld-image" />
+                    </TransformComponent>
+
+                    <AutoCenter resetTransform={resetTransform} tab={tab} />
+                  </>
+                )}
+              </TransformWrapper>
             </div>
           )}
 
@@ -150,4 +151,23 @@ export default function AboutProjectModal({ open, onClose }: Props) {
       </div>
     </div>
   );
+}
+function AutoCenter({
+  resetTransform,
+  tab,
+}: {
+  resetTransform: () => void;
+  tab: string;
+}) {
+  useEffect(() => {
+    if (tab === "hld") {
+      const timer = setTimeout(() => {
+        resetTransform();
+      }, 50);
+
+      return () => clearTimeout(timer);
+    }
+  }, [tab, resetTransform]);
+
+  return null;
 }

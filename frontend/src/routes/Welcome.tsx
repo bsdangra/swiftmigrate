@@ -12,7 +12,7 @@ export default function Welcome() {
       <div className="welcome-inner">
         {/* Badge */}
         <div className="welcome-badge">
-          <span>●</span> Team Antaran · Hackathon 2026
+          <span>●</span> Team Antaran · APOTHEOSIS Hackathon 2026
         </div>
 
         {/* Logo */}
