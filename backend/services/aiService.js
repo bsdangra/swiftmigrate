@@ -31,8 +31,8 @@ export const convertWithAI = async (
   steps = []
 ) => {
   const model = genAI.getGenerativeModel({
-    //model: "gemini-3.1-pro-preview",
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-3.1-pro-preview",
+    //model: "gemini-3.1-flash-lite-preview",
   });
 
   const normalizedDependencyCode = normalizeCodeInput(dependencyCode);
@@ -47,11 +47,11 @@ export const convertWithAI = async (
     steps
   });
 
-  const result =// await model.generateContent(prompt);
-  await openAIClient.responses.create({
-  model: "gpt-4o-mini",
-  input: prompt
-});
+  const result = await model.generateContent(prompt);
+  //await openAIClient.responses.create({
+  //model: "gpt-4o-mini",
+  //input: prompt
+//});
 
   let text =
     result.choices?.[0]?.message?.content || result.response?.candidates?.[0]?.content?.parts?.[0]?.text || 
