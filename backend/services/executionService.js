@@ -106,7 +106,7 @@ export async function executeProject(projectPath){
 
     return {
     success: false,
-    error: lastError,
+    error: result.logs || result.error || "Unknown error during execution",
     resultJsonCount: result.resultJsonCount
   };
 }
