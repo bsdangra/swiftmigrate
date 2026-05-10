@@ -51,12 +51,53 @@ async function safeConvert(fn, maxRetries = 3) {
   throw new Error("Max retries exceeded");
 }
 
+function calculateConfidence(accuracyReport, iterationCount) {
+
+  const baseAccuracy = getSafeAccuracyScore(accuracyReport);
+    // 1. Handle EXEMPT status (Constants/Empty)
+    if (accuracyReport.pipelineStatus === 'EXEMPT') {
+        return { score: 100, label: "EXEMPT", detail: "Structural parity not applicable." };
+    }
+
+    // 2. Handle Critical Gaps
+    if (accuracyReport.pipelineStatus === 'GENERATION_INCOMPLETE') {
+        return { score: 0, label: "FAILED", detail: "Critical coverage gap or truncation detected." };
+    }
+
+    // 3. Standard Calculation for successful paths
+    let finalScore = baseAccuracy;
+
+    // Apply iteration penalty (-10% per retry)
+    const iterationPenalty = (iterationCount - 1) * 10;
+    finalScore -= iterationPenalty;
+
+    // Apply Behavioral Penalty (for library substitutions)
+    if (accuracyReport.scoringMode === 'BEHAVIORAL_ONLY') {
+        finalScore -= 10; // Lower confidence because AST cannot verify third-party libs
+    }
+
+    let label;
+    if(finalScore <= 50)
+        label = "MANUAL REVIEW REQUIRED";
+    if(finalScore >= 80)
+        label = "HIGH";
+    else
+        label = "MEDIUM";
+
+    return {
+        score: Math.max(0, Math.min(100, finalScore)),
+        label,
+        detail: `Verified via ${accuracyReport.scoringMode}`
+    };
+}
+
 
 export async function processFiles(orderedFiles, dependencyGraph, methodContentMap) {
   const memory = {};
   const maxAttempts = 3;
   let totalTokenUsed = 0;
   const allReports = [];
+  const fileConversionConfidence = new Map();
 
   for (const fileName of orderedFiles) {
     const node = dependencyGraph[fileName];
@@ -132,72 +173,76 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
         feedback = review.feedback; // Pass critic's comments back to generator
         attempt++;
     }
-      // 🔥 Validate
-/*      const validation = validatePlaywrightCode(playwrightCode, file.type);
 
-      if (validation.valid) {
-        emitProgress(
-          'conversion',
-          `${fileName} converted successfully`,
-          SocketMessageCategory.SUCCESS,
-          { file: fileName }
-        );
-        break;
-      }
-
-      emitProgress(
-        'conversion',
-        `Issue detected. Refining conversion...`,
-        SocketMessageCategory.ERROR,
-        { file: fileName, attempt, error: validation.error }
-      );
-
-      // 🔥 Prepare error for next retry
-      lastError = `
-Validation Failed:
-${validation.error}
-
-Fix the code accordingly.
-`;*/
     }
+
 allReports.push(result)
+fileConversionConfidence.set(file.fileName, calculateConfidence(result, attempt));
     // 🔥 Store result
     memory[fileName] = {
       content: playwrightCode,
       type: context.type
     };
   }
-const summary = AccuracyPipeline.summarize(allReports);
+
+
+const structuralAccuracySummary = AccuracyPipeline.summarize(allReports);
 
 console.log('\n══════════════════════════════════════════');
 console.log('  PROJECT ACCURACY SUMMARY');
 console.log('══════════════════════════════════════════');
-console.log(`Project accuracy:  ${summary.projectAccuracy}  [${summary.confidence}]`);
-console.log(`Total files:       ${summary.totalFiles}`);
-console.log(`Scored files:      ${summary.scoredFiles}`);
-console.log(`Exempted files:    ${summary.exemptedFiles}`);
-console.log(`Status breakdown:  ${JSON.stringify(summary.statusBreakdown, null, 2)}`);
+console.log(`Project accuracy:  ${structuralAccuracySummary.projectAccuracy}  [${structuralAccuracySummary.confidence}]`);
+console.log(`Total files:       ${structuralAccuracySummary.totalFiles}`);
+console.log(`Scored files:      ${structuralAccuracySummary.scoredFiles}`);
+console.log(`Exempted files:    ${structuralAccuracySummary.exemptedFiles}`);
+console.log(`Status breakdown:  ${JSON.stringify(structuralAccuracySummary.statusBreakdown, null, 2)}`);
 
-if (summary.incompleteGenerations.length > 0) {
+if (structuralAccuracySummary.incompleteGenerations.length > 0) {
   console.log('\n❌ Files needing re-generation:');
-  for (const f of summary.incompleteGenerations) {
+  for (const f of structuralAccuracySummary.incompleteGenerations) {
     console.log(`   ${f.fileName} → ${f.retryStrategy}`);
   }
 }
 
-if (summary.failedAccuracyFiles.length > 0) {
+if (structuralAccuracySummary.failedAccuracyFiles.length > 0) {
   console.log('\n⚠️  Files failing accuracy threshold:');
-  for (const f of summary.failedAccuracyFiles) {
+  for (const f of structuralAccuracySummary.failedAccuracyFiles) {
     console.log(`   ${f.fileName} (${f.score}) — missing: ${f.missingFromTs?.join(', ')}`);
   }
 }
 
-if (summary.behavioralReviewRequired.length > 0) {
+if (structuralAccuracySummary.behavioralReviewRequired.length > 0) {
   console.log('\n🔬 Files requiring behavioral (runtime) review:');
-  for (const f of summary.behavioralReviewRequired) {
+  for (const f of structuralAccuracySummary.behavioralReviewRequired) {
     console.log(`   ${f.fileName} — ${f.reason}`);
   }
 }
 
-  return {memory, totalTokenUsed};
+
+  return {memory, totalTokenUsed, structuralAccuracySummary, fileConversionConfidence};
+}
+
+
+function getSafeAccuracyScore(report) {
+    // If accuracy is a valid number, return it
+    if (typeof report.accuracyScore === 'number') return report.accuracyScore;
+
+    // Handle 'N/A' scenarios based on Pipeline Status and Scoring Mode
+    switch (report.pipelineStatus) {
+        case 'EXEMPT':
+            // Constants or Empty files are "accurate" by default because there is nothing to miss
+            return 100; 
+
+        case 'BEHAVIORAL_REVIEW_REQUIRED':
+            // Library substitutions (e.g., POI to ExcelJS) can't be mapped 1:1 via AST
+            // We give it a passing baseline but flag it for review
+            return 70; 
+
+        case 'GENERATION_INCOMPLETE':
+            // Truncation or critical gaps mean the logic is broken
+            return 0;
+
+        default:
+            return 0; // Default safety net
+    }
 }
