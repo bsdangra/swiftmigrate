@@ -161,10 +161,10 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
       totalTokenUsed += generationOutput.tokenUsed || 0;
 
        result = AccuracyPipeline.analyzeFile(file.type, file.fileName, file.content, playwrightCode);
-      console.log(`AccuracyPipeline result: ${JSON.stringify(result)}`)
+      console.log(`AccuracyPipeline result for file ${file.fileName} for attempt ${attempt} accuracyScore is ${result.accuracyScore}`)
       // 3. CRITIC: Reasoning check
     const review = await criticAgent.analyze(file.content, playwrightCode, result);
-    console.log(`Critic feedback: ${JSON.stringify(review)}`);
+    console.log(`Critic feedback isApproved: ${review.isApproved}`);
     if (review.isApproved) {
         console.log("✅ Migration Approved!");
         break;
