@@ -120,7 +120,7 @@ function normalizeCodeInput(input) {
 function buildRefinementPrompt(java, lastTs, criticReview, report) {
     return `
     ### REVISE MIGRATION
-    Your last attempt scored % accuracy. Logic is missing.
+    Your last attempt scored ${report.accuracyScore} accuracy. Logic is missing.
     
     SOURCE:
     ${java}
@@ -168,21 +168,26 @@ TEST STEPS
 ================================
 ${steps?.join("\n") || "N/A"}
  
+${preprocessResult?.issues?.length ? `
 ================================
-KNOWN ISSUES
+KNOWN Selenium Java to Playwright Typescript mappings
 ================================
-${preprocessResult?.issues?.map(i => `- ${i.message}`).join("\n") || "None"}
- 
+${preprocessResult.issues.map(i => `- ${i.message}`).join("\n")}
+` : ""}
+
+${errorContext ? `
 ================================
-PREVIOUS ERROR (if any)
+PREVIOUS ERROR (SAME FILE ONLY)
 ================================
-${errorContext || "None"}
- 
+${errorContext}
+` : ""}
+
+${previousPlaywrightCode ? `
 ================================
-PREVIOUS ATTEMPT (if any)
+PREVIOUS ATTEMPT (SAME FILE ONLY)
 ================================
-${previousPlaywrightCode || "None"}
- 
+${previousPlaywrightCode}
+` : ""} 
 ================================
 RULES (STRICT)
 ================================
