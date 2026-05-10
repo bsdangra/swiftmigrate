@@ -22,7 +22,7 @@ class CriticAgent {
      */
     async analyze(javaSource, tsCandidate, astReport) {
         // 1. Check for immediate pass (Deterministic check)
-        if (astReport.accuracy >= 100) {
+        if (astReport.accuracyScore >= 100) {
             return {
                 isApproved: true,
                 feedback: "Structural integrity verified. 100% logic parity.",
@@ -32,7 +32,7 @@ class CriticAgent {
 
         // 2. Prepare context for the LLM "Reasoning"
         const prompt = this._buildCriticPrompt(javaSource, tsCandidate, astReport);
-        console.log(`Constructed Critic Prompt: ${prompt}`);
+     //   console.log(`Constructed Critic Prompt: ${prompt}`);
 
         // 3. Call LLM to act as the Critic
         try {
@@ -41,9 +41,8 @@ class CriticAgent {
                 { role: "user", content: prompt }
             ]);
 
-            console.log(`Raw Critic Response for file with accuracy ${astReport.accuracyScore}  is: ${JSON.stringify(reviewResponse)}`);
             const analysis = this._parseReview(reviewResponse);
-console.log(`Parsed Critic Analysis: ${JSON.stringify(analysis)}`);
+            console.log(`Parsed Critic Analysis: ${JSON.stringify(analysis)}`);
             // 4. Final Approval Logic
             // Approval requires BOTH the LLM's 'APPROVE' tag and a minimum accuracy score
             const isApproved = analysis.decision === "APPROVE";// && astReport.accuracyScore >= this.threshold;
@@ -51,13 +50,13 @@ console.log(`Parsed Critic Analysis: ${JSON.stringify(analysis)}`);
             return {
                 isApproved: isApproved,
                 feedback: analysis.feedback,
-                score: astReport.accuracy,
+                score: astReport.accuracyScore,
                 hallucinations: analysis.hallucinations
             };
 
         } catch (error) {
             console.error("Critic Agent failed to reach a decision:", error);
-            return { isApproved: false, feedback: "Error in Critic reasoning loop.", score: astReport.accuracy };
+            return { isApproved: false, feedback: "Error in Critic reasoning loop.", score: astReport.accuracyScore };
         }
     }
 
@@ -80,7 +79,7 @@ ${java}
 ${ts}
 
 ### AST ANALYSIS REPORT:
-- Accuracy: ${report.accuracyScore}%
+- Accuracy: ${report.accuracyScore}
 - Missing Actions (Intents): ${report.missingFromTs || "None"}
 - Java Sequence: ${JSON.stringify(report.javaSequence)}
 - TS Sequence: ${JSON.stringify(report.tsSequence)}
