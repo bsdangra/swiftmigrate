@@ -18,7 +18,7 @@ import { handleZip } from "./services/uploadService.js";
 import { resolvePOMWithReport } from "./services/pomResolver.js";
 import { buildDependencyGraph, topoSortWithBuckets, buildDependencyGraphWithUtil } from './services/dependencyResolver.js';
 import { processFiles } from './services/conversionOrchestrator.js';
-import { runtimeSelfHeal } from './services/executionService.js';
+import { runtimeSelfHeal, executeProject } from './services/executionService.js';
 import { buildProject } from './services/projectBuilder.js'
 import { validatePlaywrightCode } from "./services/validator.js";
 import { extractDependencies } from "./dependencyExtractor.js";
@@ -160,7 +160,7 @@ app.post("/process-project", async (req, res) => {
     emitProgress('conversion', 'Converting Selenium tests into Playwright format...', SocketMessageCategory.INFO);
 
     //🔥 STEP 2 + 3 — CONVERT FILES
-    const { memory: convertedFiles, totalTokenUsed } = await processFiles(
+    const { memory: convertedFiles, totalTokenUsed, structuralAccuracySummary, fileConversionConfidence } = await processFiles(
       ordered,
       dependencyGraph,
       methodContentMap
@@ -172,7 +172,7 @@ app.post("/process-project", async (req, res) => {
     const projectPath = await buildProject(convertedFiles);
 
     // 🔥 Runtime execution + healing
-    const executionResult = await runtimeSelfHeal(projectPath, totalTokenUsed);
+    const executionResult = await executeProject(projectPath);
 
    emitProgress('done', 'Conversion and validation complete. Your project is ready!', SocketMessageCategory.SUCCESS);
 
@@ -186,7 +186,7 @@ app.post("/process-project", async (req, res) => {
     
     res.json({
       success: executionResult.success,
-      attempts: executionResult.attempts,
+   //   attempts: executionResult.attempts,
       logs: executionResult.logs,
       error: executionResult.error,
       projectPath,
@@ -196,6 +196,10 @@ app.post("/process-project", async (req, res) => {
       unordered,
       convertedCount: Object.keys(convertedFiles).length,
       totalTime: totalExeSeconds,
+      totalTokenUsed,
+      structuralAccuracySummary,
+      fileConversionConfidence: Object.fromEntries(fileConversionConfidence),
+      allureReport: executionResult.resultJsonCount
     });
 
   } catch (err) {
