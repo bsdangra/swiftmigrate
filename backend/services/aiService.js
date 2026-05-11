@@ -100,13 +100,9 @@ function buildPrompt({
  
   return `
 TASK:
-Convert Selenium Java test into Playwright TypeScript.
+Convert Selenium-Java files into Playwright TypeScript.
 ================================
-SOURCE TYPE IDENTIFICATION
-================================
-Identify if this is a Test class, a Page Object class, or a Utility Class. Match the output structure accordingly.
-================================
-TEST (SOURCE OF TRUTH)
+Files (SOURCE OF TRUTH)
 ================================
 ${seleniumCode} 
 ================================
