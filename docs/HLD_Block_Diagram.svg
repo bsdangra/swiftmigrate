@@ -47,7 +47,7 @@
 
   <!-- Upload service -->
   <rect x="420" y="310" width="360" height="140" class="box" />
-  <text x="440" y="340" class="label">Upload & Analysis Services</text>
+  <text x="440" y="340" class="label">Upload and Analysis Services</text>
   <text x="440" y="362" class="muted">- services/uploadService.js (handleZip)</text>
   <text x="440" y="382" class="muted">- dependencyExtractor.js</text>
   <text x="440" y="402" class="muted">- utils/fileAnalyzer.js (classify/mapTests)</text>
