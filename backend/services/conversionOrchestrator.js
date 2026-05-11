@@ -96,7 +96,8 @@ function calculateConfidence(accuracyReport, iterationCount, criticReview = null
     }
 
     // Ensure bounds
-    finalScore = Math.max(0, Math.min(100, finalScore));
+    const clampedScore = Math.max(0, Math.min(100, finalScore));
+    finalScore = Number(clampedScore.toFixed(4));
 
     // 5. Dynamic Labeling
     let label;
