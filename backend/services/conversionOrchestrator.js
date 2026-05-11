@@ -51,46 +51,78 @@ async function safeConvert(fn, maxRetries = 3) {
   throw new Error("Max retries exceeded");
 }
 
-function calculateConfidence(accuracyReport, iterationCount) {
+/**
+ * Modified confidence calculation with "Critic Rescue" logic.
+ * The Critic's approval can override low AST scores if logic parity is confirmed.
+ */
+function calculateConfidence(accuracyReport, iterationCount, criticReview = null) {
+    const baseAccuracy = getSafeAccuracyScore(accuracyReport);
+    
+    let finalScore = baseAccuracy;
+    let overrideActive = false;
 
-  const baseAccuracy = getSafeAccuracyScore(accuracyReport);
     // 1. Handle EXEMPT status (Constants/Empty)
     if (accuracyReport.pipelineStatus === 'EXEMPT') {
         return { score: 100, label: "EXEMPT", detail: "Structural parity not applicable." };
     }
 
-    // 2. Handle Critical Gaps
-    if (accuracyReport.pipelineStatus === 'GENERATION_INCOMPLETE') {
-        return { score: 0, label: "FAILED", detail: "Critical coverage gap or truncation detected." };
+    // 2. CRITIC RESCUE LOGIC (The "Weightage" shift)
+    // If AST says incomplete but Critic approves, we 'rescue' the score.
+    if (criticReview?.isApproved) {
+        if (accuracyReport.pipelineStatus === 'GENERATION_INCOMPLETE' || baseAccuracy < 70) {
+            // Boost the score to a "Passing" baseline because the human-like agent verified it
+            finalScore = Math.max(baseAccuracy, 80); 
+            overrideActive = true;
+        } else {
+            // Standard boost for already high scores
+            finalScore += 10;
+        }
+    } else if (criticReview && !criticReview.isApproved) {
+        // Harsh penalty for Critic rejection regardless of AST
+        finalScore -= 40;
     }
 
-    // 3. Standard Calculation for successful paths
-    let finalScore = baseAccuracy;
+    // 3. Handle Critical Gaps (Only if Critic also didn't approve)
+    if (accuracyReport.pipelineStatus === 'GENERATION_INCOMPLETE' && (!criticReview || !criticReview.isApproved)) {
+        return { score: 0, label: "FAILED", detail: "Structural gaps detected and not cleared by Critic." };
+    }
 
-    // Apply iteration penalty (-10% per retry)
-    const iterationPenalty = (iterationCount - 1) * 10;
+    // 4. Apply standard penalties to the (potentially rescued) score
+    const iterationPenalty = (iterationCount - 1) * 5; // Reduced penalty to favor successful retries
     finalScore -= iterationPenalty;
 
-    // Apply Behavioral Penalty (for library substitutions)
     if (accuracyReport.scoringMode === 'BEHAVIORAL_ONLY') {
-        finalScore -= 10; // Lower confidence because AST cannot verify third-party libs
+        finalScore -= 5;
     }
 
+    // Ensure bounds
+    finalScore = Math.max(0, Math.min(100, finalScore));
+
+    // 5. Dynamic Labeling
     let label;
-    if(finalScore <= 50)
-        label = "MANUAL REVIEW REQUIRED";
-    if(finalScore >= 80)
+    let detailPrefix = overrideActive ? "Critic Override (Logic Verified): " : `Verified via ${accuracyReport.scoringMode}: `;
+
+    if (finalScore >= 85) {
         label = "HIGH";
-    else
+    } else if (finalScore >= 60) {
         label = "MEDIUM";
+    } else {
+        label = "MANUAL REVIEW REQUIRED";
+    }
+
+    // Force Manual Review if Critic explicitly rejected, even if score is okay
+    if (criticReview && !criticReview.isApproved) {
+        label = "MANUAL REVIEW REQUIRED (Critic rejected logic)";
+    }
+
+    console.log(`Final Confidence: ${finalScore} (Rescued: ${overrideActive}, Base AST: ${baseAccuracy})`);
 
     return {
-        score: Math.max(0, Math.min(100, finalScore)),
+        score: finalScore,
         label,
-        detail: `Verified via ${accuracyReport.scoringMode}`
+        detail: `${detailPrefix}${criticReview?.feedback || ''}`
     };
 }
-
 
 export async function processFiles(orderedFiles, dependencyGraph, methodContentMap) {
   const memory = {};
@@ -102,6 +134,7 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
   for (const fileName of orderedFiles) {
     const node = dependencyGraph[fileName];
     const file = node.file;
+    let review = null;
 
     emitProgress(
       'conversion',
@@ -161,7 +194,7 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
       totalTokenUsed += generationOutput.tokenUsed || 0;
 
        result = AccuracyPipeline.analyzeFile(file.type, file.fileName, file.content, playwrightCode);
-      console.log(`AccuracyPipeline result for file ${file.fileName} for attempt ${attempt} accuracyScore is ${result.accuracyScore}`)
+      console.log(`AccuracyPipeline result for file ${file.fileName} for attempt ${attempt} accuracyScore is ${result.accuracyScore}, due to ${result.scoringMode} with status ${result.pipelineStatus}`);
       // 3. CRITIC: Reasoning check
     const review = await criticAgent.analyze(file.content, playwrightCode, result);
     console.log(`Critic feedback isApproved: ${review.isApproved}`);
@@ -169,7 +202,7 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
         console.log("✅ Migration Approved!");
         break;
     } else {
-        console.log(`❌ Attempt ${attempt + 1} Rejected.`);
+        console.log(`❌ Attempt ${attempt} Rejected.`);
         feedback = review.feedback; // Pass critic's comments back to generator
         attempt++;
     }
@@ -177,7 +210,7 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
     }
 
 allReports.push(result)
-fileConversionConfidence.set(file.fileName, calculateConfidence(result, attempt));
+fileConversionConfidence.set(file.fileName, calculateConfidence(result, attempt, review));
     // 🔥 Store result
     memory[fileName] = {
       content: playwrightCode,
@@ -224,9 +257,15 @@ if (structuralAccuracySummary.behavioralReviewRequired.length > 0) {
 
 
 function getSafeAccuracyScore(report) {
-    // If accuracy is a valid number, return it
-    if (typeof report.accuracyScore === 'number') return report.accuracyScore;
+    console.log(`getSafeAccuracyScore called with report: ${JSON.stringify(report.accuracyScore)}`);
 
+// If it's a string (like "30%"), extract the digits and decimal point
+    const numericValue = parseFloat(report.accuracyScore.toString().replace(/[^0-9.]/g, ''));
+
+    // Return the number, or 0 if the parsing failed (NaN)
+    const accuracyScoreNumber = isNaN(numericValue) ? 0 : numericValue;
+
+if (!accuracyScoreNumber || accuracyScoreNumber === 'N/A') {
     // Handle 'N/A' scenarios based on Pipeline Status and Scoring Mode
     switch (report.pipelineStatus) {
         case 'EXEMPT':
@@ -245,4 +284,7 @@ function getSafeAccuracyScore(report) {
         default:
             return 0; // Default safety net
     }
+  }
+  // If accuracy is a valid number, return it
+  return accuracyScoreNumber;
 }
