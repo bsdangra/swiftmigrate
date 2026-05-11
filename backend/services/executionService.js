@@ -37,14 +37,14 @@ async function generateAllureReport(projectPath) {
     `📊 Allure: ${resultJsonCount} result JSON file(s) under ${resultsDir} (0 → report will look empty)`
   );
 
-/*  try {
+  try {
     await execAsync("npx allure generate ./allure-results --clean -o ./allure-report", {
       cwd: projectPath,
       maxBuffer: 1024 * 1024 * 10,
     });
   } catch (e) {
     console.warn("⚠️ Allure HTML report could not be generated:", e.stderr || e.message);
-  }*/
+  }
    return resultJsonCount;
 }
 
