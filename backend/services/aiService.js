@@ -134,7 +134,8 @@ an actual test class or a suite (e.g., contains @Test).
  of the file from the root of the project. 
  EXAMPLE 2- import { RecruitmentPage } from '../pages/RecruitmentPage' NOT import { RecruitmentPage } from './RecruitmentPage'. All imports must 
  reflect the actual path from the root of the project, even if it means adding imports 
- for classes that were not originally imported in the Selenium code.  
+ for classes that were not originally imported in the Selenium code.
+ - Keep the original test intact; any added cases must be additive and focused on complementary validations or missing assertions.  
 ================================
 PLAYWRIGHT RULES
 ================================
