@@ -118,11 +118,19 @@ export default function AboutProjectModal({ open, onClose }: Props) {
                     desc: "Identifies test/page/base/util classes",
                   },
                   {
-                    title: "Graph Builder",
+                    title: "Dependancy Extractor - Graph Builder",
                     desc: "Builds dependency relationships",
                   },
                   {
-                    title: "Converter",
+                    title: "Rule-based transformation",
+                    desc: "Builds dependency relationships",
+                  },
+                  {
+                    title: "Determination of structural accuracy %",
+                    desc: "In house developed Alogorithm to determine structural accuracy",
+                  },
+                  {
+                    title: "Multi LLM",
                     desc: "Transforms Selenium → Playwright",
                   },
                   {

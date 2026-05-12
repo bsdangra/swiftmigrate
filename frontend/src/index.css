@@ -498,6 +498,102 @@ html, body, #root { min-height:100%; }
   font-size: 12px;
 }
 
+/* FILE SUMMARY GRID */
+.file-summary-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.file-summary-card {
+  background: linear-gradient(135deg, var(--bg2) 0%, rgba(22, 27, 36, 0.8) 100%);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r12);
+  padding: 16px;
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.file-summary-card:hover {
+  border-color: var(--green2);
+  background: linear-gradient(135deg, var(--bg3) 0%, rgba(30, 36, 51, 0.9) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 229, 160, 0.15);
+}
+
+.file-summary-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.file-name {
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--mono);
+  color: var(--text1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  word-break: break-word;
+}
+
+.score-badge {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-family: var(--mono);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 55px;
+}
+
+.score-badge.successful {
+  background: var(--green-bg);
+  color: var(--green);
+  border: 1px solid var(--green2);
+}
+
+.score-badge.partial {
+  background: var(--amber-bg);
+  color: var(--amber);
+  border: 1px solid rgba(255, 176, 32, 0.5);
+}
+
+.score-badge.needs_review {
+  background: var(--red-bg);
+  color: var(--red);
+  border: 1px solid rgba(255, 77, 106, 0.5);
+}
+
+.file-summary-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 0.5px solid rgba(42, 50, 69, 0.5);
+}
+
+.file-status {
+  font-size: 12px;
+  color: var(--text1);
+  font-weight: 500;
+}
+
+.file-detail {
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.5;
+}
+
 .lld-desc {
   font-size: 11px;
   color: var(--text2);
