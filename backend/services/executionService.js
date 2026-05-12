@@ -45,6 +45,7 @@ async function generateAllureReport(projectPath) {
   } catch (e) {
     console.warn("⚠️ Allure HTML report could not be generated:", e.stderr || e.message);
   }
+   return resultJsonCount;
 }
 
 // 🏃 Run Playwright project (results → Allure instead of HTML reporter)
@@ -66,25 +67,50 @@ export async function runPlaywrightProject(projectPath) {
       maxBuffer: 1024 * 1024 * 10,
     });
 
-    await generateAllureReport(projectPath);
+    const resultJsonCount = await generateAllureReport(projectPath);
 
     const logs = [stdout, stderr].filter(Boolean).join("\n");
 
     if (exitCode === 0) {
-      return { success: true, logs };
+      return { success: true, logs, resultJsonCount };
     }
 
     return {
       success: false,
       error: logs || stderr || `Playwright exited with code ${exitCode}`,
+      resultJsonCount: 0,
     };
   } catch (error) {
     return {
       success: false,
       error: error.stderr || error.stdout || error.message,
+      resultJsonCount: 0,
     };
   }
 }
+
+export async function executeProject(projectPath){
+
+  console.log(`\n🔁 Executing generated project`);
+
+    const result = await runPlaywrightProject(projectPath);
+
+    if (result.success) {
+      console.log("✅ Tests passed!");
+      return {
+        success: true,
+        logs: result.logs,
+        resultJsonCount: result.resultJsonCount
+      };
+    }
+
+    return {
+    success: false,
+    error: result.logs || result.error || "Unknown error during execution",
+    resultJsonCount: result.resultJsonCount
+  };
+}
+
 
 export async function runtimeSelfHeal(projectPath, totalTokenUsed, maxAttempts = 3) {
   let attempt = 0;

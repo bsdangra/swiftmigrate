@@ -21,14 +21,38 @@ export const callLLM = async(prompt = '') => {
   return result;
 }
 
+export const criticLLM = {
+  client: openAIClient,
+  model: "gpt-5.4",
+
+ async chat(messages) {
+        try {
+            const result = await this.client.chat.completions.create({
+                model: this.model,
+                messages: messages,
+                temperature: 0.2, 
+            });
+           const responseContent =  result.choices?.[0]?.message?.content || result.response?.candidates?.[0]?.content?.parts?.[0]?.text || 
+  result.output_text ||"";
+            return responseContent;
+
+        } catch (error) {
+            console.error("LLM Error:", error.message);
+            throw error;
+        }
+    }
+  }
+
 export const convertWithAI = async (
+  attempt,
   fileName,
   seleniumCode,
   dependencyCode = "",
   errorContext = "",
   preprocessResult = null,
   previousPlaywrightCode = "",
-  steps = []
+  criticReview,
+  report
 ) => {
   const model = genAI.getGenerativeModel({
     model: "gemini-3.1-pro-preview",
@@ -37,15 +61,21 @@ export const convertWithAI = async (
 
   const normalizedDependencyCode = normalizeCodeInput(dependencyCode);
   
-  const prompt = buildPrompt({
+  let prompt ;
+  if(attempt === 0){ 
+    prompt = buildPrompt({
     fileName,
     seleniumCode,
     dependencyCode,
     errorContext,
     preprocessResult,
     previousPlaywrightCode,
-    steps
   });
+  } else {
+  prompt = buildRefinementPrompt(seleniumCode, previousPlaywrightCode, criticReview,  report);
+  console.log(`prompt for attempt ${attempt} is ${JSON.stringify(prompt)}`)
+}
+
 
   const result = await model.generateContent(prompt);
   //await openAIClient.responses.create({
@@ -85,6 +115,27 @@ function normalizeCodeInput(input) {
   }
   
   return typeof input === "string" ? input : "";
+}
+
+function buildRefinementPrompt(java, lastTs, criticReview, report) {
+    return `
+    ### REVISE MIGRATION
+    Your last attempt scored ${report.accuracyScore} accuracy. Logic is missing.
+    
+    SOURCE:
+    ${java}
+    
+    LAST ATTEMPT:
+    ${lastTs}
+    
+    REQUIRED FIXES:
+    ${criticReview}
+    
+    MISSING SYMBOLS:
+${report.missingFromTs || "None"}
+    
+    Please output the full corrected TypeScript file having only valid code.Do not add any explanations or apologies, do not include conersion at beigning or end of the code. The output should be in the exact format as required by the rules above.
+    `;
 }
 
 function buildPrompt({
