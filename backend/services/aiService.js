@@ -100,52 +100,41 @@ function buildPrompt({
  
   return `
 TASK:
-Convert Selenium Java test into Playwright TypeScript.
- 
+Convert Selenium-Java files into Playwright TypeScript.
 ================================
-TEST (SOURCE OF TRUTH)
+Files (SOURCE OF TRUTH)
 ================================
-${seleniumCode}
- 
+${seleniumCode} 
 ================================
 PAGE OBJECTS (RELEVANT ONLY)
 ================================
-${dependencyCode || "No dependencies provided"}
- 
+${dependencyCode || "No dependencies provided"} 
 ================================
-TEST STEPS
-================================
-${steps?.join("\n") || "N/A"}
- 
-================================
-KNOWN ISSUES
+KNOWN Selenium Java to Playwright Typescript mappings
 ================================
 ${preprocessResult?.issues?.map(i => `- ${i.message}`).join("\n") || "None"}
- 
-================================
-PREVIOUS ERROR (if any)
-================================
-${errorContext || "None"}
- 
-================================
-PREVIOUS ATTEMPT (if any)
-================================
-${previousPlaywrightCode || "None"}
- 
 ================================
 RULES (STRICT)
 ================================
-- Preserve full test flow
-- Do NOT remove steps
-- Do NOT invent locators
-- Use ONLY locators from Page Objects
-- Inline POM methods logically
-- Maintain assertions
-- Prefer locators from Page Objects
-- If locator is missing, infer using text, role, or label
-- Include page.goto() only if the test involves opening the application or login flow
-- Always wait for elements before interacting (waitFor or expect)
- 
+- Preserve full test flow. All actions and assertions must be retained.
+- Use locators ONLY from the Page Object classes. Do NOT invent new locators.
+- Inline POM methods logically. 
+- Include page.goto() only if the test involves opening the application or login flow.
+- Always wait for elements before interacting (waitFor or expect).
+- UTILITY CLASSIFICATION: If the input is a utility class(e.g., Retry, Log, Constants), generate ONLY a TypeScript class or exported constants.
+- DO NOT wrap Utility/Helper classes in Playwright test(...) blocks. 
+- DO NOT add page.goto(), locators, or browser interactions to Utility files.
+- TEST FILES: Only use test(...) wrappers and async ({ page }) fixtures if the source is 
+an actual test class or a suite (e.g., contains @Test).
+- Preserve original method names, logic flow, and variable assignments exactly.
+- Do NOT mock steps to fill a "test flow."
+- The import of any class (within any page class or test class),
+ which is required for completing the test flow, must happen from the root of the output project. 
+ EXAMPLE 1- import { Log } from "../utils/Log"; Here "../utils" marks the true path 
+ of the file from the root of the project. 
+ EXAMPLE 2- import { RecruitmentPage } from '../pages/RecruitmentPage' NOT import { RecruitmentPage } from './RecruitmentPage'. All imports must 
+ reflect the actual path from the root of the project, even if it means adding imports 
+ for classes that were not originally imported in the Selenium code.  
 ================================
 PLAYWRIGHT RULES
 ================================
@@ -154,7 +143,19 @@ PLAYWRIGHT RULES
 - Use async/await
 - Prefer page.locator()
 - Use expect() for assertions
- 
+- Page object class instance MUST contain appropriate fixtures. 
+	EXAMPLE: CORRECT- loginPage = new LoginPage(page); NOT-  loginPage = new LoginPage();
+- DON'T ADD Unnecessary arguments in any of the functions: 
+	EXAMPLE:  
+  EXPECTED- 
+  loginPage = new LoginPage(page);
+	expect(true).toBe(false);		
+  NOT-
+  await loginPage.loginToApp(page, username, password);
+  expect(true).toBe(false, "Could not login."); Here "Could not login" is an extra argument which is NOT required.
+- Convert the first letter of every function to small letter to avoid naming conflicts. 
+ EXAMPLE:
+ Convert ClickOnUserName(page) to clickOnUserName(page);
 ================================
 OUTPUT
 ================================
