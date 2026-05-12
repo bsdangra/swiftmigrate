@@ -37,6 +37,8 @@ export const processProject = async ({ dependencyGraph, methodContentMap, startT
     reportPath: string,
     ordered: string[],
     unordered: string[],
-    convertedCount: number
+    convertedCount: number,
+    fileConversionConfidence: any,
+    structuralAccuracySummary: any,
   };
 };

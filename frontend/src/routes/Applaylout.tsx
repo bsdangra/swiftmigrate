@@ -55,6 +55,8 @@ export default function AppLayout() {
           ordered: res.ordered || [],
           unordered: res.unordered || [],
           convertedCount: res.convertedCount || 0,
+          fileConversionConfidence: res.fileConversionConfidence || {},
+          structuralAccuracySummary: res.structuralAccuracySummary || {}
         });
 
         setTab("report");
@@ -68,6 +70,8 @@ export default function AppLayout() {
           ordered: res.ordered || [],
           unordered: res.unordered || [],
           convertedCount: res.convertedCount || 0,
+          fileConversionConfidence: res.fileConversionConfidence || {},
+          structuralAccuracySummary: res.structuralAccuracySummary || {}
         });
         setTab("report");
       }

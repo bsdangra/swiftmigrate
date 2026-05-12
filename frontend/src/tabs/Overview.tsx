@@ -115,9 +115,9 @@ export default function Overview({ progressStep }: OverviewProps) {
         <div className="metric-card">
           <div className="metric-label">LLM</div>
           <div className="metric-val" style={{ color: "var(--amber)" }}>
-            {'Made with Gemini'}
+            {'Made with OpenAI'}
           </div>
-          <div className="metric-sub">Model 3.1-pro-preview</div>
+          <div className="metric-sub">Model gpt-5.4 and gpt-4.o-mini</div>
           <div className="metric-bar">
             <div
               className="metric-bar-fill"

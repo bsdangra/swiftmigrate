@@ -16,6 +16,8 @@ export type ProjectData = {
   unordered: string[];
   convertedCount: number;
   files?: FileItem[];
+  fileConversionConfidence?: any;
+  structuralAccuracySummary?: any;
 };
 
 export interface ClassificationSummary {
