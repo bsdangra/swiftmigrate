@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import { emitProgress } from "./progressEmitter.js";
 import { SocketMessageCategory } from "../socket.js";
 import OpenAI from "openai";
+import Anthropic from '@anthropic-ai/sdk';
 
 dotenv.config();
 
@@ -12,8 +13,19 @@ const openAIClient = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const anthropic = new Anthropic({
+  apiKey: KEY,
+});
 
-export const callLLM = async(prompt = '') => {
+const openRouterAIClient = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+//  baseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+  apiKey: Key, 
+});
+
+
+
+export const callLLMGPT = async(prompt = '') => {
   const model = genAI.getGenerativeModel({
     model: "gemini-3.1-pro-preview",
   });
@@ -43,9 +55,45 @@ export const criticLLM = {
     }
   }
 
+export const criticLLM = {
+  // Use 'claude-3-5-sonnet-20240620' for high-accuracy migration tasks
+  modelName: "claude-sonnet-4-5", 
+//"claude-3-5-sonnet-latest",
+  async chat(messages) {
+    try {
+      // 1. Extract the system message (Claude requires this as a separate param)
+      const systemMessage = messages.find(m => m.role === 'system')?.content || "";
+      
+      // 2. Filter out system messages from the main conversation array
+      const userMessages = messages.filter(m => m.role !== 'system');
+
+      // 3. Call the Claude Messages API
+      const response = await anthropic.messages.create({
+        model: this.modelName,
+        max_tokens: 4096,
+        system: systemMessage, // Pass system instructions here
+        messages: userMessages,
+        temperature: 0.1,
+      });
+
+      // 4. Extract the text content
+      // Claude returns an array of content blocks; we want the text block
+      const responseContent = response.content.find(block => block.type === 'text')?.text || "";
+
+      console.log(`Raw Claude Response: ${responseContent}`);
+      return responseContent;
+
+    } catch (error) {
+      console.error("Claude LLM Error:", error.message);
+      throw error;
+    }
+  }
+};
+
 export const convertWithAI = async (
   attempt,
   fileName,
+  fileType,
   seleniumCode,
   dependencyCode = "",
   errorContext = "",
@@ -65,6 +113,7 @@ export const convertWithAI = async (
   if(attempt === 0){ 
     prompt = buildPrompt({
     fileName,
+	fileType,
     seleniumCode,
     dependencyCode,
     errorContext,
