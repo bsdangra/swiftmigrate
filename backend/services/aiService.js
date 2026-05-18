@@ -25,7 +25,7 @@ const openRouterAIClient = new OpenAI({
 
 
 
-export const callLLMGPT = async(prompt = '') => {
+export const callLLM = async(prompt = '') => {
   const model = genAI.getGenerativeModel({
     model: "gemini-3.1-pro-preview",
   });
@@ -33,7 +33,7 @@ export const callLLMGPT = async(prompt = '') => {
   return result;
 }
 
-export const criticLLM = {
+export const criticLLMGPT = {
   client: openAIClient,
   model: "gpt-5.4",
 
@@ -57,7 +57,7 @@ export const criticLLM = {
 
 export const criticLLM = {
   // Use 'claude-3-5-sonnet-20240620' for high-accuracy migration tasks
-  modelName: "claude-sonnet-4-5", 
+  modelName: "claude-sonnet-4-6", 
 //"claude-3-5-sonnet-latest",
   async chat(messages) {
     try {
@@ -126,12 +126,16 @@ export const convertWithAI = async (
 }
 
 
-  const result = await model.generateContent(prompt);
-  //await openAIClient.responses.create({
-  //model: "gpt-4o-mini",
-  //input: prompt
-//});
-
+  const result =// await model.generateContent(prompt);
+ /* await openAIClient.responses.create({
+  model: "gpt-4o-mini",
+  input: prompt
+});*/
+await openRouterAIClient.chat.completions.create({
+    model: "openai/gpt-4.1-mini",
+    messages: [{ role: "user", content: prompt }],
+  });
+//console.log(`generator response for attempt ${attempt} is ${JSON.stringify(result)}`)
   let text =
     result.choices?.[0]?.message?.content || result.response?.candidates?.[0]?.content?.parts?.[0]?.text || 
   result.output_text ||"";
