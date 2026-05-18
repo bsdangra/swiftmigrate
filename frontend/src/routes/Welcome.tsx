@@ -1,7 +1,13 @@
 import { useNavigate } from "react-router-dom";
+import Footer from "../components/Footer";
+import { useState } from "react";
+import AboutModal from "../components/AboutModal";
+import AboutProjectModal from "../components/AboutProjectModal";
 
 export default function Welcome() {
   const navigate = useNavigate();
+  const [showAbout, setShowAbout] = useState(false);
+  const [showProject, setShowProject] = useState(false);
 
   return (
     <div id="pg-welcome" className="page active">
@@ -100,6 +106,19 @@ export default function Welcome() {
           Start Migration →
         </button>
       </div>
+
+      <Footer
+        onOpenAbout={() => setShowAbout(true)}
+        onOpenProject={() => setShowProject(true)}
+      />
+      <AboutModal
+        open={showAbout}
+        onClose={() => setShowAbout(false)}
+      />
+      <AboutProjectModal
+        open={showProject}
+        onClose={() => setShowProject(false)}
+      />
     </div>
   );
 }

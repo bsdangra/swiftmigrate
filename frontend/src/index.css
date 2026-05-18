@@ -42,10 +42,16 @@ html, body, #root { min-height:100%; }
 .btn-primary{background:var(--green);color:#0A0C10;font-family:var(--font);font-size:14px;font-weight:600;padding:12px 32px;border-radius:var(--r8);border:none;cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;gap:8px}
 .btn-primary:hover{background:#00FFB0;transform:translateY(-1px)}
 #pg-welcome.page.active {
-  flex-direction: row;   /* break out of column prison */
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   min-height: 100vh;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+.welcome-inner {
+  margin: auto 0;
 }
 
 /* ─── UPLOAD PAGE ─── */
@@ -231,7 +237,7 @@ html, body, #root { min-height:100%; }
 .about-overlay {position: fixed;inset: 0;z-index: 9999;display: none;align-items: center;justify-content: center;background: rgba(6, 8, 12, 0.7);backdrop-filter: blur(6px);}
 .about-overlay.active{display: flex;}
 .app-footer-btn {font-size: 11px; color: var(--text1); cursor: pointer; transition: all 0.15s; margin-left: 1rem;}
-.app-footer{display: flex;align-items: center;justify-content: center;padding: 10px 18px;border-top: 1px solid var(--border);background: var(--bg1);font-size: 12px;color: var(--text3);}
+.app-footer{display: flex;align-items: center;justify-content: center;padding: 10px 18px;font-size: 12px;color: var(--text3);}
 .about-modal {
   background: var(--bg1);
   border: 0.5px solid var(--border);

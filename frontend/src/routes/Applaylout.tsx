@@ -7,7 +7,6 @@ import Logs from "../tabs/Logs";
 import Report from "../tabs/Report";
 import { useApp } from "../context/AppContext";
 import { processProject } from "../services/api";
-import type { ProjectData } from "../types";
 import Footer from "../components/Footer";
 import AboutModal from "../components/AboutModal";
 import AboutProjectModal from "../components/AboutProjectModal";
@@ -48,30 +47,34 @@ export default function AppLayout() {
       if (res.success) {
         setProgressStep(4);
         setProjectData({
-          attempts: res.attempts || 0,
-          logs: res.logs || '',
+          attempts: 0,
+          logs: '',
           zipPath: res.zipPath || "",
           reportPath: res.reportPath || "",
           ordered: res.ordered || [],
           unordered: res.unordered || [],
           convertedCount: res.convertedCount || 0,
           fileConversionConfidence: res.fileConversionConfidence || {},
-          structuralAccuracySummary: res.structuralAccuracySummary || {}
+          structuralAccuracySummary: res.structuralAccuracySummary || {},
+          totalTime: res.totalTime,
+          totalTokenUsed: res.totalTokenUsed
         });
 
         setTab("report");
       } else {
         setProgressStep(4);
         setProjectData({
-          attempts: res.attempts || 0,
-          logs: res.logs || '',
+          attempts: 0,
+          logs: '',
           zipPath: res.zipPath || "",
           reportPath: res.reportPath || "",
           ordered: res.ordered || [],
           unordered: res.unordered || [],
           convertedCount: res.convertedCount || 0,
           fileConversionConfidence: res.fileConversionConfidence || {},
-          structuralAccuracySummary: res.structuralAccuracySummary || {}
+          structuralAccuracySummary: res.structuralAccuracySummary || {},
+          totalTime: res.totalTime,
+          totalTokenUsed: res.totalTokenUsed
         });
         setTab("report");
       }
