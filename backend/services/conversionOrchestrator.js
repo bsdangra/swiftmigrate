@@ -103,7 +103,7 @@ function calculateConfidence(accuracyReport, iterationCount, criticReview = null
 
     // 5. Dynamic Labeling
     let label;
-    let detailPrefix = overrideActive ? "Critic Override (Logic Verified): " : `Verified via ${accuracyReport.scoringMode}: `;
+    let detailPrefix = overrideActive ? "Critic Override (Logic Verified): " : `Verified : `;
 
     if (finalScore >= 85) {
         label = "HIGH";
