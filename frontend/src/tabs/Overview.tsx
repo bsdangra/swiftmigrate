@@ -117,7 +117,7 @@ export default function Overview({ progressStep }: OverviewProps) {
           <div className="metric-val" style={{ color: "var(--amber)" }}>
             {'Made using Multi-LLM'}
           </div>
-          <div className="metric-sub">Model claude-sonnet-4-6 and gpt-4.1-mini</div>
+          <div className="metric-sub">Model: claude-sonnet-4-6 & gpt-4.1-mini</div>
           <div className="metric-bar">
             <div
               className="metric-bar-fill"
