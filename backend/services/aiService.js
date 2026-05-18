@@ -120,7 +120,7 @@ export const convertWithAI = async (
   });
   } else {
   prompt = buildRefinementPrompt(seleniumCode, previousPlaywrightCode, criticReview,  report);
-  console.log(`prompt for attempt ${attempt} is ${JSON.stringify(prompt)}`)
+//  console.log(`prompt for attempt ${attempt} is ${JSON.stringify(prompt)}`)
 }
 
 
@@ -240,6 +240,7 @@ the Selenium code.
 - Do NOT mock steps to fill a "test flow."
 - Keep the original test intact; any added cases must be additive and focused on complementary validations or missing assertions.  
 - Preserve full test flow. All actions and assertions must be retained.
+- Final generated output project package will have base, utils, pages, and tests folders. Import paths must reflect this structure and should utilize filetype of each file mentioned in the dependency code.
 - The import of any class (within any page class or test class),
  which is required for completing the test flow, must happen from the root of the output project. 
  EXAMPLE 1- import { Log } from "../utils/Log"; Here "../utils" marks the true path 
