@@ -127,7 +127,7 @@ function calculateConfidence(accuracyReport, iterationCount, criticReview = null
 
 export async function processFiles(orderedFiles, dependencyGraph, methodContentMap) {
   const memory = {};
-  const maxAttempts = 3;
+  const maxAttempts = 4;
   let totalTokenUsed = 0;
   const allReports = [];
   const fileConversionConfidence = new Map();
