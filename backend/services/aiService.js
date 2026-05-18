@@ -10,7 +10,7 @@ dotenv.config();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const openAIClient = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: "",
 });
 
 const anthropic = new Anthropic({
@@ -199,8 +199,17 @@ function buildPrompt({
   const resolvedDependencyCode = normalizeCodeInput(dependencyCode);
  
   return `
+
 TASK:
-Convert Selenium-Java files into Playwright TypeScript.
+- Convert Selenium-Java files into Playwright TypeScript.
+- Preserve semantic behavior exactly from source code.
+- DON'T use auto-correction for any of the names. If the Selenium code has a method named "ClickOnUserNmae",  
+ the Playwright code MUST have a method named exactly "clickOnUserNmae".
+- Convert the first letter of every function to small letter to avoid naming conflicts (specially due to case sensitivity). 
+If the method is getting called in the same file, change the method name in the call as well. If the method is getting called in some other file, 
+ensure to change the method name in that file as well.
+ EXAMPLE:
+ Convert ClickOnUserNmae(page) to clickOnUserNmae(page);
 ================================
 Files (SOURCE OF TRUTH)
 ================================
@@ -216,7 +225,6 @@ ${preprocessResult?.issues?.map(i => `- ${i.message}`).join("\n") || "None"}
 ================================
 RULES (STRICT)
 ================================
-- Preserve full test flow. All actions and assertions must be retained.
 - Use locators ONLY from the Page Object classes. Do NOT invent new locators.
 - Inline POM methods logically. 
 - Include page.goto() only if the test involves opening the application or login flow.
@@ -225,9 +233,12 @@ RULES (STRICT)
 - DO NOT wrap Utility/Helper classes in Playwright test(...) blocks. 
 - DO NOT add page.goto(), locators, or browser interactions to Utility files.
 - TEST FILES: Only use test(...) wrappers and async ({ page }) fixtures if the source is 
-an actual test class or a suite (e.g., contains @Test).
-- Preserve original method names, logic flow, and variable assignments exactly.
+an actual test class (e.g.- contains @Test).
+- Preserve original method names, logic flow, and variable assignments exactly as in 
+the Selenium code.
 - Do NOT mock steps to fill a "test flow."
+- Keep the original test intact; any added cases must be additive and focused on complementary validations or missing assertions.  
+- Preserve full test flow. All actions and assertions must be retained.
 - The import of any class (within any page class or test class),
  which is required for completing the test flow, must happen from the root of the output project. 
  EXAMPLE 1- import { Log } from "../utils/Log"; Here "../utils" marks the true path 
@@ -235,17 +246,26 @@ an actual test class or a suite (e.g., contains @Test).
  EXAMPLE 2- import { RecruitmentPage } from '../pages/RecruitmentPage' NOT import { RecruitmentPage } from './RecruitmentPage'. All imports must 
  reflect the actual path from the root of the project, even if it means adding imports 
  for classes that were not originally imported in the Selenium code.
- - Keep the original test intact; any added cases must be additive and focused on complementary validations or missing assertions.  
+- Preserve all access modifiers and object lifetime semantics:
+   - static → static
+   - final → readonly/const equivalent
+   - public/private/protected must remain equivalent
+- If a Selenium Page Object contains:
+      public static WebElement Admin;
+   then the migrated Playwright code MUST contain an equivalent static Locator member:
+   Eg- public static Admin: Locator;
+- NEVER inline locators inside methods if the source element is declared as a class member.
+- Every @FindBy field MUST become a class-level Locator field and be referenced as such 
+across all methods. 
+- Shared/global elements referenced across pages/utilities MUST remain class members.
 ================================
 PLAYWRIGHT RULES
 ================================
-- Use @playwright/test
-- Wrap in test(...)
 - Use async/await
 - Prefer page.locator()
 - Use expect() for assertions
 - Page object class instance MUST contain appropriate fixtures. 
-	EXAMPLE: CORRECT- loginPage = new LoginPage(page); NOT-  loginPage = new LoginPage();
+	EXAMPLE: EXPECTED- loginPage = new LoginPage(page); NOT-  loginPage = new LoginPage();
 - DON'T ADD Unnecessary arguments in any of the functions: 
 	EXAMPLE:  
   EXPECTED- 
@@ -254,9 +274,6 @@ PLAYWRIGHT RULES
   NOT-
   await loginPage.loginToApp(page, username, password);
   expect(true).toBe(false, "Could not login."); Here "Could not login" is an extra argument which is NOT required.
-- Convert the first letter of every function to small letter to avoid naming conflicts. 
- EXAMPLE:
- Convert ClickOnUserName(page) to clickOnUserName(page);
 ================================
 OUTPUT
 ================================
