@@ -14,20 +14,20 @@ const openAIClient = new OpenAI({
 });
 
 const anthropic = new Anthropic({
-  apiKey: KEY,
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 const openRouterAIClient = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
 //  baseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-  apiKey: Key, 
+  apiKey: process.env.OPENROUTER_API_KEY, 
 });
 
 
 
 export const callLLM = async(prompt = '') => {
   const model = genAI.getGenerativeModel({
-    model: "gemini-3.1-pro-preview",
+    model: "gemini-3.1-flash-lite",
   });
   const result = await model.generateContent(prompt);
   return result;
@@ -93,7 +93,6 @@ export const criticLLM = {
 export const convertWithAI = async (
   attempt,
   fileName,
-  fileType,
   seleniumCode,
   dependencyCode = "",
   errorContext = "",
@@ -113,7 +112,6 @@ export const convertWithAI = async (
   if(attempt === 0){ 
     prompt = buildPrompt({
     fileName,
-	fileType,
     seleniumCode,
     dependencyCode,
     errorContext,
@@ -173,7 +171,7 @@ function normalizeCodeInput(input) {
 function buildRefinementPrompt(java, lastTs, criticReview, report) {
     return `
     ### REVISE MIGRATION
-    Your last attempt scored ${report.accuracyScore} accuracy. Logic is missing.
+    Your last attempt scored ${report?.accuracyScore} accuracy. Logic is missing.
     
     SOURCE:
     ${java}
@@ -185,7 +183,7 @@ function buildRefinementPrompt(java, lastTs, criticReview, report) {
     ${criticReview}
     
     MISSING SYMBOLS:
-${report.missingFromTs || "None"}
+${report?.missingFromTs || "None"}
     
     Please output the full corrected TypeScript file having only valid code.Do not add any explanations or apologies, do not include conersion at beigning or end of the code. The output should be in the exact format as required by the rules above.
     `;
@@ -197,8 +195,7 @@ function buildPrompt({
   dependencyCode = "",
   errorContext,
   preprocessResult,
-  previousPlaywrightCode,
-  steps
+  previousPlaywrightCode
 }) {
   const resolvedDependencyCode = normalizeCodeInput(dependencyCode);
  

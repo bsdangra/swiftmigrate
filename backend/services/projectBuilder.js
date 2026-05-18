@@ -1,5 +1,6 @@
 import fs from "fs-extra";
 import path from "path";
+import { getAllCachedPackages } from "../utils/packageRegistry.js";
 
 // 🔥 MAIN FUNCTION
 export async function buildProject(convertedFiles) {
@@ -61,6 +62,16 @@ export async function buildProject(convertedFiles) {
   }
 
   // 4. Generate package.json
+  const cachedPackages = getAllCachedPackages();
+  const dynamicDependencies = {"@playwright/test": "^1.59.0",};
+  for (const pkg of cachedPackages) {
+    if (!pkg.package || !pkg.version) {
+      continue;
+    }
+    dynamicDependencies[pkg.package] =
+      pkg.version;
+  }
+
   const packageJson = {
     name: "converted-playwright-project",
     version: "1.0.0",
@@ -70,10 +81,10 @@ export async function buildProject(convertedFiles) {
       "allure:report": "allure generate ./allure-results --clean -o ./allure-report",
     },
     devDependencies: {
-      "@playwright/test": "^1.59.0",
       "allure-commandline": "^2.38.0",
       "allure-playwright": "^3.7.1",
       typescript: "^5.0.0",
+      ...dynamicDependencies,
     },
   };
 

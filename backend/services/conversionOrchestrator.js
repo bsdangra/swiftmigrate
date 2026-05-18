@@ -1,5 +1,5 @@
 import { buildContext } from "./dependencyResolver.js";
-import { convertWithAI } from "./aiService.js";
+import { callLLM, criticLLM, convertWithAI } from "./aiService.js";
 import { validatePlaywrightCode } from "./validator.js";
 import { emitProgress } from "./progressEmitter.js";
 import { preprocess } from "../preprocess.js";
@@ -9,6 +9,8 @@ import { AccuracyPipeline } from '../utils/AccuracyPipeline.js';
 import { CriticAgent } from './criticAiService.js';
 
 import Bottleneck from "bottleneck";
+import { resolvePackages } from "../utils/extractImports.js";
+import { getRepairPrompt, savePackageToRegistry } from "../utils/packageRegistry.js";
 
 const limiter = new Bottleneck({
   maxConcurrent: 1,
@@ -194,24 +196,53 @@ export async function processFiles(orderedFiles, dependencyGraph, methodContentM
       playwrightCode = generationOutput.playwrightCode;
       totalTokenUsed += generationOutput.tokenUsed || 0;
 
-       result = AccuracyPipeline.analyzeFile(file.type, file.fileName, file.content, playwrightCode);
+      result = AccuracyPipeline.analyzeFile(file.type, file.fileName, file.content, playwrightCode);
       console.log(`AccuracyPipeline result for file ${file.fileName} for attempt ${attempt} accuracyScore is ${result.accuracyScore}, due to ${result.scoringMode} with status ${result.pipelineStatus}`);
       // 3. CRITIC: Reasoning check
     review = await criticAgent.analyze(file.content, playwrightCode, result);
     console.log(`Critic feedback isApproved: ${review.isApproved}`);
-    if (review.isApproved) {
-        console.log("✅ Migration Approved!");
-        break;
+     if (review.isApproved) {
+          console.log("✅ Migration Approved!");
+          break;
+      } else {
+          console.log(`❌ Attempt ${attempt} Rejected.`);
+          feedback = review.feedback; // Pass critic's comments back to generator
+          attempt++;
+      }
+    }
+
+    const packageResolution = await resolvePackages(playwrightCode);
+    console.log('====================================');
+    console.log('Package ', packageResolution);
+    console.log('====================================');
+    if (packageResolution.invalidPackages.length > 0) {
+      const invalidPackageList = packageResolution.invalidPackages.map((p) => `- ${p.package}`).join("\n");
+      const repairResult = await convertWithAI(
+         attempt++,
+         fileName,
+         file.content,
+         dependencyCode,
+         lastError,
+         preprocessResult,
+         playwrightCode,
+         getRepairPrompt(invalidPackageList, playwrightCode)
+      );
+      playwrightCode = repairResult.playwrightCode;
+      totalTokenUsed += repairResult.tokenUsed || 0;
+      const repairedPackageResolution = await resolvePackages(playwrightCode);
+      if (repairedPackageResolution.invalidPackages.length > 0) {
+        console.log(`❌ Package repair failed`);
+      }
     } else {
-        console.log(`❌ Attempt ${attempt} Rejected.`);
-        feedback = review.feedback; // Pass critic's comments back to generator
-        attempt++;
+      packageResolution.validPackages.forEach((p) => {
+        if (p.valid) {
+          savePackageToRegistry(p.package, p.version);
+        }
+      });
     }
 
-    }
-
-allReports.push(result)
-fileConversionConfidence.set(file.fileName, calculateConfidence(result, attempt, review));
+    allReports.push(result)
+    fileConversionConfidence.set(file.fileName, calculateConfidence(result, attempt, review));
     // 🔥 Store result
     memory[fileName] = {
       content: playwrightCode,
