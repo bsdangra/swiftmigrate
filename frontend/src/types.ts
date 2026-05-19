@@ -18,6 +18,8 @@ export type ProjectData = {
   files?: FileItem[];
   fileConversionConfidence?: any;
   structuralAccuracySummary?: any;
+  totalTime?: string;
+  totalTokenUsed?: number;
 };
 
 export interface ClassificationSummary {

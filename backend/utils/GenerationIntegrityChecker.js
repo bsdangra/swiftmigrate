@@ -1,3 +1,11 @@
+
+//known-rename map for driver accessor patterns:
+const knownRenames = new Map([
+  ['getdriver', 'getpage'],
+  ['getwebdriver', 'getpage'],
+  // add more as discovered
+]);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GenerationIntegrityChecker.js
 //
@@ -20,18 +28,27 @@
 function extractJavaMethods(javaCode) {
   const lines = javaCode.split('\n');
   const methods = [];
+  const className = javaCode.match(/publics+(?:finals+)?classs+(w+)/)?.[1];
   // Matches: [public|protected|private] [static] [returnType] methodName(
-  const sig = /^\s*(public|protected|private)?\s*(static\s+)?\S+\s+(\w+)\s*\(/;
-  const skip = new Set(['if', 'while', 'for', 'switch', 'catch', 'try', 'synchronized', 'class', 'interface', 'enum', 'new', 'return']);
+ // const sig = /^\s*(public|protected|private)?\s*(static\s+)?\S+\s+(\w+)\s*\(/;
+  const sig = /^\s*(public|protected|private)?\s*(static\s+)?([\w<>\[\].]+)\s+(\w+)\s*\(/;
+  const skip = new Set([className, 'if', 'while', 'for', 'switch', 'catch', 'try', 'synchronized', 'class', 'interface', 'enum', 'new', 'return']);
 
   lines.forEach((line, i) => {
     const m = line.match(sig);
     if (m) {
-      const name = m[3];
-      if (!skip.has(name) && !/^\d/.test(name)) {
+      const returnType = m[3];  
+      const name = m[4]; 
+
+      const isKeyword = skip.has(name) || skip.has(returnType);
+      const isConstructorCall = /\bnew\s+\w/.test(line.slice(0, line.indexOf(name)));
+      const looksLikeMethodCall = /\.\s*\w+\s*\(/.test(line.slice(0, line.indexOf(name)));
+
+      if (!isKeyword && !isConstructorCall && !looksLikeMethodCall && !/^\d/.test(name)) {
         methods.push({
           name,
-          isPublic: m[1] === 'public' || m[1] === 'protected',
+          // Fix for isPublic — undefined modifier = package-private = treat as public for TestNG
+          isPublic: m[1] === 'public' || m[1] === 'protected' || m[1] === undefined,
           lineNumber: i + 1,
         });
       }
@@ -49,28 +66,64 @@ function extractTsMethods(tsCode) {
   const sig = /^\s*(?:public|private|protected|static|async|\s)*(?:async\s+)?(\w+)\s*(?:<[^>]*>)?\s*\(/;
   const skip = new Set(['if', 'while', 'for', 'switch', 'catch', 'try', 'new', 'return', 'constructor', 'describe', 'test', 'it', 'expect', 'import', 'export']);
   const fnDecl = /^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(/;
+  // Add visibility tracking to extractTsMethods:  
+  const visibilityRe = /^s*(public|private|protected)/;
 
   lines.forEach((line, i) => {
     // class methods
     const m = line.match(sig);
     if (m && !skip.has(m[1]) && !/^\d/.test(m[1])) {
-      methods.push({ name: m[1], lineNumber: i + 1 });
+      methods.push({ name: m[1],
+        lineNumber: i + 1,
+        isPublic: (() => {
+          const v = line.match(visibilityRe)?.[1];
+          return v === 'public' || v === undefined; // no modifier = public in TS
+        })() 
+      });
     }
     // standalone functions
     const f = line.match(fnDecl);
     if (f && !skip.has(f[1])) {
-      methods.push({ name: f[1], lineNumber: i + 1 });
+      methods.push({ name: f[1], 
+        lineNumber: i + 1,
+        isPublic: (() => {
+          const v = line.match(visibilityRe)?.[1];
+          return v === 'public' || v === undefined; // no modifier = public in TS
+        })() 
+     });
     }
   });
 
   // deduplicate by name
   const seen = new Set();
-  return methods.filter(m => seen.has(m.name) ? false : (seen.add(m.name), true));
+  const dedupedMethods =  methods.filter(m => seen.has(m.name) ? false : (seen.add(m.name), true));
+
+  // ── Merge with Playwright test block names ────────────────────────────────
+  // Find all test('...') block names, normalize to camelCase, then merge.
+  // Map is keyed by lowercased name so collisions are deduplicated automatically.
+  const testNames = extractPlaywrightTestNames(tsCode);
+
+  const merged = new Map();
+  dedupedMethods.forEach(m => merged.set(m.name.toLowerCase(), m));
+  testNames.forEach(m => merged.set(m.name.toLowerCase(), m));
+
+  return Array.from(merged.values());
+}
+
+function extractPlaywrightTestNames(tsCode) {
+  const names = [];
+  const re = /test\s*\(\s*['"`]([^'"`]+)['"`]/g;
+  let m;
+  while ((m = re.exec(tsCode)) !== null) {
+    // normalize to camelCase for comparison with Java method names
+    const camel = m[1].replace(/\s+(.)/g, (_, c) => c.toUpperCase());
+    names.push({ name: camel, raw: m[1] });
+  }
+  return names;
 }
 
 function findPWStubMethods(javaCode, tsCode){
   const existingStubs = findJavaStubMethods(javaCode);
-  console.log(`Existing Java stubs: ${JSON.stringify(existingStubs)}`)
   const existingStubNames = new Set(existingStubs.map(m => m.methodName.toLowerCase()));
   const pwStubs = findStubMethods(tsCode);
   const truePWStubs = pwStubs.filter(s => !existingStubNames.has(s.methodName.toLowerCase()));
@@ -309,9 +362,14 @@ function detectProseLeak(tsCode) {
 // ── Method count gap analyser ─────────────────────────────────────────────────
 function analyseMethodCoverage(javaMethods, tsMethods) {
   const javaPublic = javaMethods.filter(m => m.isPublic);
-  const tsNames    = new Set(tsMethods.map(m => m.name.toLowerCase()));
+  const tsPublic = tsMethods.filter(m => m.isPublic);
+  const tsNames    = new Set(tsPublic.map(m => m.name.toLowerCase()));
 
-  const missing = javaPublic.filter(m => !tsNames.has(m.name.toLowerCase()));
+  const missing = javaPublic.filter(m => {
+    const javaName = m.name.toLowerCase();
+    const tsEquivalent = knownRenames.get(javaName);
+    return !tsNames.has(javaName) && !(tsEquivalent && tsNames.has(tsEquivalent));
+  });
   const coverageRate = javaPublic.length > 0
     ? ((javaPublic.length - missing.length) / javaPublic.length) * 100
     : 100;
@@ -344,6 +402,7 @@ export class GenerationIntegrityChecker {
 
     const javaMethods = extractJavaMethods(javaCode);
     const tsMethods   = extractTsMethods(tsCode);
+    
     const coverage    = analyseMethodCoverage(javaMethods, tsMethods);
   //  const javaStubs   = findStubMethods(javaCode);
     const stubs       = findPWStubMethods(javaCode, tsCode);

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "../context/AppContext";
 
 type Props = {
@@ -7,6 +7,7 @@ type Props = {
 
 export default function Report({ onRedirectToOverview }: Props) {
   const { projectData } = useApp();
+  const [selectedFile, setSelectedFile] = useState<any>(null);
 
   useEffect(() => {
     if (!projectData) {
@@ -91,9 +92,12 @@ export default function Report({ onRedirectToOverview }: Props) {
                       Status: {data.label}
                     </div>
 
-                    <div className="file-detail">
-                      {data.detail}
-                    </div>
+                    <button
+                      className="file-detail-btn"
+                      onClick={() => setSelectedFile({ fileName, ...data })}
+                    >
+                      View Details →
+                    </button>
                   </div>
 
                 </div>
@@ -121,6 +125,51 @@ export default function Report({ onRedirectToOverview }: Props) {
 
         </div>
       </div>
+
+      {/* FILE DETAIL MODAL */}
+      {selectedFile && (
+        <div className="modal-overlay" onClick={() => setSelectedFile(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{selectedFile.fileName}</h2>
+              <button
+                className="modal-close"
+                onClick={() => setSelectedFile(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="detail-item">
+                <span className="detail-label">Status:</span>
+                <span className={`detail-value status-${selectedFile.label?.toLowerCase()}`}>
+                  {selectedFile.label}
+                </span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Confidence Score:</span>
+                <span className="detail-value">{selectedFile.score}%</span>
+              </div>
+
+              <div className="detail-section">
+                <h3>Details</h3>
+                <p>{selectedFile.detail}</p>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                className="btn-sm"
+                onClick={() => setSelectedFile(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

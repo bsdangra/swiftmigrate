@@ -3,25 +3,37 @@ import dotenv from "dotenv";
 import { emitProgress } from "./progressEmitter.js";
 import { SocketMessageCategory } from "../socket.js";
 import OpenAI from "openai";
+import Anthropic from '@anthropic-ai/sdk';
 
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const openAIClient = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: "",
 });
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
+const openRouterAIClient = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+//  baseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+  apiKey: process.env.OPENROUTER_API_KEY, 
+});
+
 
 
 export const callLLM = async(prompt = '') => {
   const model = genAI.getGenerativeModel({
-    model: "gemini-3.1-pro-preview",
+    model: "gemini-3.1-flash-lite",
   });
   const result = await model.generateContent(prompt);
   return result;
 }
 
-export const criticLLM = {
+export const criticLLMGPT = {
   client: openAIClient,
   model: "gpt-5.4",
 
@@ -42,6 +54,41 @@ export const criticLLM = {
         }
     }
   }
+
+export const criticLLM = {
+  // Use 'claude-3-5-sonnet-20240620' for high-accuracy migration tasks
+  modelName: "claude-sonnet-4-6", 
+//"claude-3-5-sonnet-latest",
+  async chat(messages) {
+    try {
+      // 1. Extract the system message (Claude requires this as a separate param)
+      const systemMessage = messages.find(m => m.role === 'system')?.content || "";
+      
+      // 2. Filter out system messages from the main conversation array
+      const userMessages = messages.filter(m => m.role !== 'system');
+
+      // 3. Call the Claude Messages API
+      const response = await anthropic.messages.create({
+        model: this.modelName,
+        max_tokens: 4096,
+        system: systemMessage, // Pass system instructions here
+        messages: userMessages,
+        temperature: 0.1,
+      });
+
+      // 4. Extract the text content
+      // Claude returns an array of content blocks; we want the text block
+      const responseContent = response.content.find(block => block.type === 'text')?.text || "";
+
+      console.log(`Raw Claude Response: ${responseContent}`);
+      return responseContent;
+
+    } catch (error) {
+      console.error("Claude LLM Error:", error.message);
+      throw error;
+    }
+  }
+};
 
 export const convertWithAI = async (
   attempt,
@@ -73,16 +120,20 @@ export const convertWithAI = async (
   });
   } else {
   prompt = buildRefinementPrompt(seleniumCode, previousPlaywrightCode, criticReview,  report);
-  console.log(`prompt for attempt ${attempt} is ${JSON.stringify(prompt)}`)
+//  console.log(`prompt for attempt ${attempt} is ${JSON.stringify(prompt)}`)
 }
 
 
-  const result = await model.generateContent(prompt);
-  //await openAIClient.responses.create({
-  //model: "gpt-4o-mini",
-  //input: prompt
-//});
-
+  const result =// await model.generateContent(prompt);
+ /* await openAIClient.responses.create({
+  model: "gpt-4o-mini",
+  input: prompt
+});*/
+await openRouterAIClient.chat.completions.create({
+    model: "openai/gpt-4.1-mini",
+    messages: [{ role: "user", content: prompt }],
+  });
+//console.log(`generator response for attempt ${attempt} is ${JSON.stringify(result)}`)
   let text =
     result.choices?.[0]?.message?.content || result.response?.candidates?.[0]?.content?.parts?.[0]?.text || 
   result.output_text ||"";
@@ -120,7 +171,7 @@ function normalizeCodeInput(input) {
 function buildRefinementPrompt(java, lastTs, criticReview, report) {
     return `
     ### REVISE MIGRATION
-    Your last attempt scored ${report.accuracyScore} accuracy. Logic is missing.
+    Your last attempt scored ${report?.accuracyScore} accuracy. Logic is missing.
     
     SOURCE:
     ${java}
@@ -132,7 +183,7 @@ function buildRefinementPrompt(java, lastTs, criticReview, report) {
     ${criticReview}
     
     MISSING SYMBOLS:
-${report.missingFromTs || "None"}
+${report?.missingFromTs || "None"}
     
     Please output the full corrected TypeScript file having only valid code.Do not add any explanations or apologies, do not include conersion at beigning or end of the code. The output should be in the exact format as required by the rules above.
     `;
@@ -144,14 +195,22 @@ function buildPrompt({
   dependencyCode = "",
   errorContext,
   preprocessResult,
-  previousPlaywrightCode,
-  steps
+  previousPlaywrightCode
 }) {
   const resolvedDependencyCode = normalizeCodeInput(dependencyCode);
  
   return `
+
 TASK:
-Convert Selenium-Java files into Playwright TypeScript.
+- Convert Selenium-Java files into Playwright TypeScript.
+- Preserve semantic behavior exactly from source code.
+- DON'T use auto-correction for any of the names. If the Selenium code has a method named "ClickOnUserNmae",  
+ the Playwright code MUST have a method named exactly "clickOnUserNmae".
+- Convert the first letter of every function to small letter to avoid naming conflicts (specially due to case sensitivity). 
+If the method is getting called in the same file, change the method name in the call as well. If the method is getting called in some other file, 
+ensure to change the method name in that file as well.
+ EXAMPLE:
+ Convert ClickOnUserNmae(page) to clickOnUserNmae(page);
 ================================
 Files (SOURCE OF TRUTH)
 ================================
@@ -167,7 +226,6 @@ ${preprocessResult?.issues?.map(i => `- ${i.message}`).join("\n") || "None"}
 ================================
 RULES (STRICT)
 ================================
-- Preserve full test flow. All actions and assertions must be retained.
 - Use locators ONLY from the Page Object classes. Do NOT invent new locators.
 - Inline POM methods logically. 
 - Include page.goto() only if the test involves opening the application or login flow.
@@ -176,9 +234,13 @@ RULES (STRICT)
 - DO NOT wrap Utility/Helper classes in Playwright test(...) blocks. 
 - DO NOT add page.goto(), locators, or browser interactions to Utility files.
 - TEST FILES: Only use test(...) wrappers and async ({ page }) fixtures if the source is 
-an actual test class or a suite (e.g., contains @Test).
-- Preserve original method names, logic flow, and variable assignments exactly.
+an actual test class (e.g.- contains @Test).
+- Preserve original method names, logic flow, and variable assignments exactly as in 
+the Selenium code.
 - Do NOT mock steps to fill a "test flow."
+- Keep the original test intact; any added cases must be additive and focused on complementary validations or missing assertions.  
+- Preserve full test flow. All actions and assertions must be retained.
+- Final generated output project package will have base, utils, pages, and tests folders. Import paths must reflect this structure and should utilize filetype of each file mentioned in the PAGE OBJECTS (RELEVANT ONLY) section.
 - The import of any class (within any page class or test class),
  which is required for completing the test flow, must happen from the root of the output project. 
  EXAMPLE 1- import { Log } from "../utils/Log"; Here "../utils" marks the true path 
@@ -186,17 +248,26 @@ an actual test class or a suite (e.g., contains @Test).
  EXAMPLE 2- import { RecruitmentPage } from '../pages/RecruitmentPage' NOT import { RecruitmentPage } from './RecruitmentPage'. All imports must 
  reflect the actual path from the root of the project, even if it means adding imports 
  for classes that were not originally imported in the Selenium code.
- - Keep the original test intact; any added cases must be additive and focused on complementary validations or missing assertions.  
+- Preserve all access modifiers and object lifetime semantics:
+   - static → static
+   - final → readonly/const equivalent
+   - public/private/protected must remain equivalent
+- If a Selenium Page Object contains:
+      public static WebElement Admin;
+   then the migrated Playwright code MUST contain an equivalent static Locator member:
+   Eg- public static Admin: Locator;
+- NEVER inline locators inside methods if the source element is declared as a class member.
+- Every @FindBy field MUST become a class-level Locator field and be referenced as such 
+across all methods. 
+- Shared/global elements referenced across pages/utilities MUST remain class members.
 ================================
 PLAYWRIGHT RULES
 ================================
-- Use @playwright/test
-- Wrap in test(...)
 - Use async/await
 - Prefer page.locator()
 - Use expect() for assertions
 - Page object class instance MUST contain appropriate fixtures. 
-	EXAMPLE: CORRECT- loginPage = new LoginPage(page); NOT-  loginPage = new LoginPage();
+	EXAMPLE: EXPECTED- loginPage = new LoginPage(page); NOT-  loginPage = new LoginPage();
 - DON'T ADD Unnecessary arguments in any of the functions: 
 	EXAMPLE:  
   EXPECTED- 
@@ -205,9 +276,6 @@ PLAYWRIGHT RULES
   NOT-
   await loginPage.loginToApp(page, username, password);
   expect(true).toBe(false, "Could not login."); Here "Could not login" is an extra argument which is NOT required.
-- Convert the first letter of every function to small letter to avoid naming conflicts. 
- EXAMPLE:
- Convert ClickOnUserName(page) to clickOnUserName(page);
 ================================
 OUTPUT
 ================================

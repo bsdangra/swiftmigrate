@@ -40,5 +40,7 @@ export const processProject = async ({ dependencyGraph, methodContentMap, startT
     convertedCount: number,
     fileConversionConfidence: any,
     structuralAccuracySummary: any,
+    totalTime: string;
+    totalTokenUsed: number;
   };
 };
